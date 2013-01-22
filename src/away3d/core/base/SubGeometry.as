@@ -991,5 +991,9 @@
 		{
 			return 0;
 		}
+
+		public function get uvs():Vector.<Number> {
+			return _uvs;
+		}
 	}
 }
