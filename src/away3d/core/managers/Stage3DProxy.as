@@ -14,6 +14,7 @@ package away3d.core.managers
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
 	import flash.geom.Rectangle;
+	import flash.system.Capabilities;
 	import flash.system.System;
 
 	use namespace arcane;
@@ -462,7 +463,8 @@ package away3d.core.managers
 				var hadContext : Boolean = (_context3D != null);
 
 				_context3D = _stage3D.context3D;
-				_context3D.enableErrorChecking = Debug.active;
+				if (Capabilities.isDebugger)
+					_context3D.enableErrorChecking = Debug.active;
 				
 				_usesSoftwareRendering = (_context3D.driverInfo.indexOf('Software')==0);
 				
