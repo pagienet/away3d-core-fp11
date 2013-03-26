@@ -2,7 +2,7 @@
  */
 package away3d.filters.tasks
 {
-	import com.adobe.utils.AGALMiniAssembler;
+	import com.adobe.utils.Away3DAGALAssembler;
 	
 	import flash.display3D.Context3DProgramType;
 	import flash.display3D.Context3DTextureFormat;
@@ -109,8 +109,8 @@ package away3d.filters.tasks
 		{
 			if (_program3D) _program3D.dispose();
 			_program3D = stage.context3D.createProgram();
-			_program3D.upload(	new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, getVertexCode(), 1,Debug.active),
-								new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, getFragmentCode(), 1,Debug.active));
+			_program3D.upload(	new Away3DAGALAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, getVertexCode()),
+								new Away3DAGALAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, getFragmentCode()));
 			_program3DInvalid = false;
 		}
 

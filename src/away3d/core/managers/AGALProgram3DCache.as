@@ -5,7 +5,7 @@ package away3d.core.managers
 	import away3d.events.Stage3DEvent;
 	import away3d.materials.passes.MaterialPassBase;
 
-	import com.adobe.utils.AGALMiniAssembler;
+	import com.adobe.utils.Away3DAGALAssembler
 
 	import flash.display3D.Context3DProgramType;
 	import flash.display3D.Program3D;
@@ -92,8 +92,8 @@ package away3d.core.managers
 				++_currentId;
 				program = _stage3DProxy._context3D.createProgram();
 
-				var vertexByteCode : ByteArray = new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, vertexCode);
-				var fragmentByteCode : ByteArray = new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, fragmentCode);
+				var vertexByteCode : ByteArray = new Away3DAGALAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, vertexCode);
+				var fragmentByteCode : ByteArray = new Away3DAGALAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, fragmentCode);
 
 				program.upload(vertexByteCode, fragmentByteCode);
 
