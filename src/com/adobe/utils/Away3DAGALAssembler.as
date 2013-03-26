@@ -41,7 +41,7 @@ package com.adobe.utils
 	// ===========================================================================
 	//	Class
 	// ---------------------------------------------------------------------------
-	public class AGALMiniAssembler
+	public class Away3DAGALAssembler
 	{
 		// ======================================================================
 		//	Properties
@@ -63,7 +63,7 @@ package com.adobe.utils
 		// ======================================================================
 		//	Constructor
 		// ----------------------------------------------------------------------
-		public function AGALMiniAssembler( debugging:Boolean = false ):void
+		public function Away3DAGALAssembler( debugging:Boolean = false ):void
 		{
 			debugEnabled = debugging;
 			if ( !initialized )
