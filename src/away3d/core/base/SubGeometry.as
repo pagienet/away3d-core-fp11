@@ -479,5 +479,9 @@
 		{
 			return SubGeometry(clone());
 		}
+
+		public function get uvs():Vector.<Number> {
+			return _uvs;
+		}
 	}
 }
