@@ -9,6 +9,7 @@ package away3d.core.pick
 	import away3d.core.math.*;
 	import away3d.core.traverse.*;
 	import away3d.entities.*;
+	import away3d.tools.utils.GeomUtil;
 
 	import flash.display.*;
 	import flash.display3D.*;
@@ -48,8 +49,11 @@ package away3d.core.pick
 		private var _projY : Number;
 		
 		private var _hitRenderable : IRenderable;
+		private var _hitEntity : Entity;
 		private var _localHitPosition : Vector3D = new Vector3D();
 		private var _hitUV : Point = new Point();
+		private var _faceIndex:uint;
+		private var _subGeometryIndex:uint;
 		
 		private var _localHitNormal:Vector3D = new Vector3D();
 		
@@ -108,7 +112,7 @@ package away3d.core.pick
 			draw( collector, null );
 
 			// clear buffers
-			_stage3DProxy.setSimpleVertexBuffer( 0, null, null, 0 );
+			_context.setVertexBufferAt(0, null);
 
 			if (!_context || !_potentialFound)
 				return null;
@@ -122,18 +126,25 @@ package away3d.core.pick
 			}
 			
 			_hitRenderable = _interactives[_hitColor-1];
-
-			var _collisionVO:PickingCollisionVO = _hitRenderable.sourceEntity.pickingCollisionVO;
+			_hitEntity = _hitRenderable.sourceEntity;
+			if (_onlyMouseEnabled && (!_hitEntity._ancestorsAllowMouseEnabled ||!_hitEntity.mouseEnabled))
+				return null;
 			
+			var _collisionVO:PickingCollisionVO = _hitEntity.pickingCollisionVO;
 			if (_hitRenderable.shaderPickingDetails) {
 				getHitDetails(view.camera);
 				_collisionVO.localPosition = _localHitPosition;
 				_collisionVO.localNormal = _localHitNormal;
 				_collisionVO.uv = _hitUV;
+				_collisionVO.index = _faceIndex;
+				_collisionVO.subGeometryIndex = _subGeometryIndex;
+
 			} else {
 				_collisionVO.localPosition = null;
 				_collisionVO.localNormal = null;
 				_collisionVO.uv = null;
+				_collisionVO.index = 0;
+				_collisionVO.subGeometryIndex = 0;
 			}
 
 			return _collisionVO;
@@ -162,7 +173,7 @@ package away3d.core.pick
 			if (!_objectProgram3D) initObjectProgram3D();
 			_context.setBlendFactors(Context3DBlendFactor.ONE, Context3DBlendFactor.ZERO);
 			_context.setDepthTest(true, Context3DCompareMode.LESS);
-			_stage3DProxy.setProgram(_objectProgram3D);
+			_context.setProgram(_objectProgram3D);
 			_context.setProgramConstantsFromVector(Context3DProgramType.VERTEX, 4, _viewportData, 1);
 			drawRenderables(entityCollector.opaqueRenderableHead, camera);
 			drawRenderables(entityCollector.blendedRenderableHead, camera);
@@ -175,7 +186,9 @@ package away3d.core.pick
 		 */
 		private function drawRenderables(item : RenderableListItem, camera : Camera3D) : void
 		{
+			var matrix : Matrix3D = Matrix3DUtils.CALCULATION_MATRIX;
 			var renderable : IRenderable;
+			var viewProjection : Matrix3D = camera.viewProjection;
 
 			while (item) {
 				renderable = item.renderable;
@@ -195,9 +208,11 @@ package away3d.core.pick
 				_id[1] = (_interactiveId >> 8)/255;	    // on green channel
 				_id[2] = (_interactiveId & 0xff)/255;  	// on blue channel
 
-				_context.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, 0, renderable.modelViewProjection, true);
+				matrix.copyFrom(renderable.getRenderSceneTransform(camera));
+				matrix.append(viewProjection);
+				_context.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, 0, matrix, true);
 				_context.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, 0, _id, 1);
-				_stage3DProxy.setSimpleVertexBuffer( 0, renderable.getVertexBuffer(_stage3DProxy), Context3DVertexBufferFormat.FLOAT_3, 0);
+				renderable.activateVertexBuffer(0, _stage3DProxy);
 				_context.drawTriangles(renderable.getIndexBuffer(_stage3DProxy), 0, renderable.numTriangles);
 
 				item = item.next;
@@ -207,7 +222,7 @@ package away3d.core.pick
 		private function updateRay(camera : Camera3D) : void
 		{
 			_rayPos = camera.scenePosition;
-			_rayDir = camera.getRay(_projX, _projY);
+			_rayDir = camera.getRay(_projX, _projY, 1);
 			_rayDir.normalize();
 		}
 
@@ -277,31 +292,32 @@ package away3d.core.pick
 			var col : uint;
 			var scX : Number, scY : Number, scZ : Number;
 			var offsX : Number, offsY : Number, offsZ : Number;
-			var localViewProjection : Matrix3D = _hitRenderable.modelViewProjection;
-
+			var localViewProjection : Matrix3D = Matrix3DUtils.CALCULATION_MATRIX;
+			localViewProjection.copyFrom(_hitRenderable.getRenderSceneTransform(camera));
+			localViewProjection.append(camera.viewProjection);
 			if (!_triangleProgram3D) initTriangleProgram3D();
 
-			_boundOffsetScale[4] = scX = 1/(entity.maxX-entity.minX);
-			_boundOffsetScale[5] = scY = 1/(entity.maxY-entity.minY);
-			_boundOffsetScale[6] = scZ = 1/(entity.maxZ-entity.minZ);
+			_boundOffsetScale[4] = 1/(scX = entity.maxX-entity.minX);
+			_boundOffsetScale[5] = 1/(scY = entity.maxY-entity.minY);
+			_boundOffsetScale[6] = 1/(scZ = entity.maxZ-entity.minZ);
 			_boundOffsetScale[0] = offsX = -entity.minX;
 			_boundOffsetScale[1] = offsY = -entity.minY;
 			_boundOffsetScale[2] = offsZ = -entity.minZ;
 
-			_stage3DProxy.setProgram(_triangleProgram3D);
+			_context.setProgram(_triangleProgram3D);
 			_context.clear(0, 0, 0, 0, 1, 0, Context3DClearMask.DEPTH);
 			_context.setScissorRectangle(MOUSE_SCISSOR_RECT);
 			_context.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, 0, localViewProjection, true);
 			_context.setProgramConstantsFromVector(Context3DProgramType.VERTEX, 5, _boundOffsetScale, 2);
-			_stage3DProxy.setSimpleVertexBuffer( 0, _hitRenderable.getVertexBuffer(_stage3DProxy), Context3DVertexBufferFormat.FLOAT_3, 0);
+			_hitRenderable.activateVertexBuffer(0, _stage3DProxy);
 			_context.drawTriangles(_hitRenderable.getIndexBuffer(_stage3DProxy), 0, _hitRenderable.numTriangles);
 			_context.drawToBitmapData(_bitmapData);
 
 			col = _bitmapData.getPixel(0, 0);
 
-			_localHitPosition.x = ((col >> 16) & 0xff)/(scX*255) - offsX;
-			_localHitPosition.y = ((col >> 8) & 0xff)/(scY*255) - offsY;
-			_localHitPosition.z = (col & 0xff)/(scZ*255) - offsZ;
+			_localHitPosition.x = ((col >> 16) & 0xff)*scX/255 - offsX;
+			_localHitPosition.y = ((col >> 8) & 0xff)*scY/255 - offsY;
+			_localHitPosition.z = (col & 0xff)*scZ/255 - offsZ;
 		}
 
 		/**
@@ -311,7 +327,7 @@ package away3d.core.pick
 		 */
 		private function getPreciseDetails(camera : Camera3D) : void {
 
-			var subGeom : SubGeometry = SubMesh(_hitRenderable).subGeometry;
+			var subGeom : ISubGeometry = SubMesh(_hitRenderable).subGeometry;
 			var indices : Vector.<uint> = subGeom.indexData;
 			var vertices : Vector.<Number> = subGeom.vertexData;
 			var len : int = indices.length;
@@ -326,21 +342,23 @@ package away3d.core.pick
 			var dot00 : Number, dot01 : Number, dot02 : Number, dot11 : Number, dot12 : Number;
 			var s : Number, t : Number, invDenom : Number;
 			var uvs : Vector.<Number> = subGeom.UVData;
-			var normals : Vector.<Number> = subGeom.faceNormalsData;
+			var normals : Vector.<Number> = subGeom.faceNormals;
 			var x : Number = _localHitPosition.x, y : Number = _localHitPosition.y, z : Number = _localHitPosition.z;
 			var u : Number, v : Number;
 			var ui1 : uint, ui2 : uint, ui3 : uint;
 			var s0x:Number, s0y:Number, s0z:Number;
 			var s1x:Number, s1y:Number, s1z:Number;
 			var nl:Number;
+			var stride:int = subGeom.vertexStride;
+			var vertexOffset:int = subGeom.vertexOffset;
 
 			updateRay(camera);
 
 
 			while (i < len) {
-				t1 = indices[i]*3;
-				t2 = indices[j]*3;
-				t3 = indices[k]*3;
+				t1 = vertexOffset + indices[i]*stride;
+				t2 = vertexOffset + indices[j]*stride;
+				t3 = vertexOffset + indices[k]*stride;
 				x1 = vertices[t1];	y1 = vertices[t1+1];	z1 = vertices[t1+2];
 				x2 = vertices[t2];	y2 = vertices[t2+1];	z2 = vertices[t2+2];
 				x3 = vertices[t3];	y3 = vertices[t3+1];	z3 = vertices[t3+2];
@@ -407,6 +425,9 @@ package away3d.core.pick
 						_hitUV.x = u + t*(uvs[ui2] - u) + s*(uvs[ui3] - u);
 						_hitUV.y = v + t*(uvs[ui2+1] - v) + s*(uvs[ui3+1] - v);
 
+						_faceIndex = i;
+						_subGeometryIndex = GeomUtil.getMeshSubMeshIndex(SubMesh(_hitRenderable));
+
 						return;
 					}
 				}
@@ -458,6 +479,11 @@ package away3d.core.pick
 			_localHitPosition.x = ox + rx*t;
 			_localHitPosition.y = oy + ry*t;
 			_localHitPosition.z = oz + rz*t;
+		}
+
+		public function dispose() : void
+		{
+			_bitmapData.dispose();
 		}
 	}
 }

@@ -62,7 +62,7 @@ package away3d.core.pick
 		{
 			//cast ray through the collection of entities on the view
 			var collector:EntityCollector = view.entityCollector;
-			var i:uint;
+			//var i:uint;
 
 			if( collector.numMouseEnableds == 0 )
 				return null;
@@ -132,6 +132,19 @@ package away3d.core.pick
 			//early out if no collisions detected
 			if( !_numEntities )
 				return null;
+			
+			return getPickingCollisionVO();
+		}
+		
+		public function getEntityCollision(position:Vector3D, direction:Vector3D, entities:Vector.<Entity>):PickingCollisionVO
+		{
+			position=position;
+			direction=direction;
+			_numEntities = 0;
+			
+			var entity : Entity;
+			for each (entity in entities)
+				_entities[_numEntities++] = entity;
 			
 			return getPickingCollisionVO();
 		}
@@ -216,6 +229,10 @@ package away3d.core.pick
 			collisionPos.x = rayPos.x + t*rayDir.x;
 			collisionPos.y = rayPos.y + t*rayDir.y;
 			collisionPos.z = rayPos.z + t*rayDir.z;
+		}
+
+		public function dispose() : void
+		{
 		}
 	}
 }

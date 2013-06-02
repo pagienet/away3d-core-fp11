@@ -1,8 +1,8 @@
 package away3d.core.pick
 {
-	import flash.geom.Vector3D;
+	import away3d.core.base.*;
 	
-	import away3d.core.base.SubMesh;
+	import flash.geom.*;
 	
 	/**
 	 * Pure AS3 picking collider for entity objects. Used with the <code>RaycastPicker</code> picking object.
@@ -29,9 +29,7 @@ package away3d.core.pick
 		 */
 		public function testSubMeshCollision(subMesh:SubMesh, pickingCollisionVO:PickingCollisionVO, shortestCollisionDistance:Number):Boolean
 		{
-			var i:uint;
 			var t:Number;
-			var numTriangles:uint;
 			var i0:uint, i1:uint, i2:uint;
 			var rx:Number, ry:Number, rz:Number;
 			var nx:Number, ny:Number, nz:Number;
@@ -50,27 +48,28 @@ package away3d.core.pick
 			var collisionTriangleIndex:int = -1;
 			var bothSides:Boolean = subMesh.material.bothSides;
 			
-			numTriangles = subMesh.numTriangles;
-			
-			for( i = 0; i < numTriangles; ++i ) { // sweep all triangles
-
-				var index:uint = i * 3;
-
+			var vertexStride:uint = subMesh.vertexStride;
+			var vertexOffset:uint = subMesh.vertexOffset;
+			var uvStride:uint = subMesh.UVStride;
+			var uvOffset:uint = subMesh.UVOffset;
+			var numIndices:int = indexData.length;
+ 
+			for(var index:uint = 0; index < numIndices; index+=3 ) { // sweep all triangles
 				// evaluate triangle indices
-				i0 = indexData[ index ] * 3;
-				i1 = indexData[ index + 1 ] * 3;
-				i2 = indexData[ index + 2 ] * 3;
+				i0 = vertexOffset + indexData[ index ] * vertexStride;
+				i1 = vertexOffset + indexData[ uint(index + 1) ] * vertexStride;
+				i2 = vertexOffset + indexData[ uint(index + 2) ] * vertexStride;
 
 				// evaluate triangle vertices
 				p0x = vertexData[ i0 ];
-				p0y = vertexData[ i0 + 1 ];
-				p0z = vertexData[ i0 + 2 ];
+				p0y = vertexData[ uint(i0 + 1) ];
+				p0z = vertexData[ uint(i0 + 2) ];
 				p1x = vertexData[ i1 ];
-				p1y = vertexData[ i1 + 1 ];
-				p1z = vertexData[ i1 + 2 ];
+				p1y = vertexData[ uint(i1 + 1) ];
+				p1z = vertexData[ uint(i1 + 2) ];
 				p2x = vertexData[ i2 ];
-				p2y = vertexData[ i2 + 1 ];
-				p2z = vertexData[ i2 + 2 ];
+				p2y = vertexData[ uint(i2 + 1) ];
+				p2z = vertexData[ uint(i2 + 2) ];
 
 				// evaluate sides and triangle normal
 				s0x = p1x - p0x; // s0 = p1 - p0
@@ -115,11 +114,14 @@ package away3d.core.pick
 					u = 1 - v - w;
 					if( !( u < 0 ) && t > 0 && t < shortestCollisionDistance) { // all tests passed
 						shortestCollisionDistance = t;
-						collisionTriangleIndex = i;
+						collisionTriangleIndex = index/3;
 						pickingCollisionVO.rayEntryDistance = t;
 						pickingCollisionVO.localPosition = new Vector3D( cx, cy, cz );
 						pickingCollisionVO.localNormal = new Vector3D( nx, ny, nz );
-						pickingCollisionVO.uv = getCollisionUV( indexData, uvData, index, v, w, u );
+						pickingCollisionVO.uv = getCollisionUV( indexData, uvData, index, v, w, u, uvOffset, uvStride );
+						pickingCollisionVO.index = index ;
+						pickingCollisionVO.subGeometryIndex = getMeshSubMeshIndex(subMesh);
+						
 						// if not looking for best hit, first found will do...
 						if (!_findClosestCollision)
 							return true;

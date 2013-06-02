@@ -1,8 +1,6 @@
-package away3d.entities
-{
+package away3d.entities {
 	import away3d.arcane;
 	import away3d.bounds.*;
-	import away3d.cameras.*;
 	import away3d.containers.*;
 	import away3d.core.partition.*;
 	import away3d.core.pick.*;
@@ -31,14 +29,20 @@ package away3d.entities
 		
 		arcane var _pickingCollisionVO:PickingCollisionVO;
 		arcane var _pickingCollider:IPickingCollider;
+		arcane var _staticNode:Boolean;
 
-		protected var _mvpTransformStack : Vector.<Matrix3D> = new Vector.<Matrix3D>();
-		protected var _zIndices : Vector.<Number> = new Vector.<Number>();
-		protected var _mvpIndex : int = -1;
-		protected var _stackLen : uint;
 		protected var _bounds : BoundingVolumeBase;
 		protected var _boundsInvalid : Boolean = true;
-		
+		private var _worldBounds : BoundingVolumeBase;
+		private var _worldBoundsInvalid : Boolean = true;
+
+
+		override public function set ignoreTransform(value : Boolean) : void
+		{
+			if (_scene) _scene.invalidateEntityBounds(this);
+			super.ignoreTransform = value;
+		}
+
 		/**
 		 * Used by the shader-based picking system to determine whether a separate render pass is made in order
 		 * to offer more details for the picking collision object, including local position, normal vector and uv value.
@@ -55,7 +59,21 @@ package away3d.entities
 		{
 			_shaderPickingDetails = value;
 		}
-		
+
+		/**
+		 * Defines whether or not the object will be moved or animated at runtime. This property is used by some partitioning systems to improve performance.
+		 * Warning: if set to true, they may not be processed by certain partition systems using static visibility lists, unless they're specifically assigned to the visibility list.
+		 */
+		public function get staticNode() : Boolean
+		{
+			return _staticNode;
+		}
+
+		public function set staticNode(value : Boolean) : void
+		{
+			_staticNode = value;
+		}
+
 		/**
 		 * Returns a unique picking collision value object for the entity.
 		 */
@@ -74,6 +92,8 @@ package away3d.entities
 		 */
 		arcane function collidesBefore(shortestCollisionDistance : Number, findClosest : Boolean) : Boolean
 		{
+			shortestCollisionDistance=shortestCollisionDistance;
+			findClosest=findClosest;
 			return true;
 		}
 
@@ -97,7 +117,7 @@ package away3d.entities
 			else 
 				removeBounds();
 		}
-		
+
 		/**
 		 * @inheritDoc
 		 */
@@ -171,7 +191,7 @@ package away3d.entities
 		{
 			if (_boundsInvalid)
 				updateBounds();
-			
+
 			return _bounds;
 		}
 		
@@ -179,11 +199,26 @@ package away3d.entities
 		{
 			removeBounds();
 			_bounds = value;
-			_boundsInvalid = true;
+			_worldBounds = value.clone();
+			invalidateBounds();
 			if (_showBounds)
 				addBounds();
 		}
-		
+
+		public function get worldBounds() : BoundingVolumeBase
+		{
+			if (_worldBoundsInvalid)
+				updateWorldBounds();
+
+			return _worldBounds;
+		}
+
+		private function updateWorldBounds() : void
+		{
+			_worldBounds.transformFrom(bounds, sceneTransform);
+			_worldBoundsInvalid = false;
+		}
+
 		/**
 		 * @inheritDoc
 		 */
@@ -222,26 +257,6 @@ package away3d.entities
 		{
 			return AssetType.ENTITY;
 		}
-		
-		/**
-		 * The current model-view-projection (MVP) matrix - the one on the top of the stack - used to transform from
-		 * model to homogeneous projection space.
-		 */
-		public function get modelViewProjection() : Matrix3D
-		{
-			// assume base if popped (only happens when all rendering is complete, and no matrices are on the stack)
-			return _mvpTransformStack[uint(uint(_mvpIndex > 0)*_mvpIndex)];
-		}
-		
-		/**
-		 * The distance of the IRenderable object to the view, used to sort per object. Should never be called manually.
-		 *
-		 * @private
-		 */
-		public function get zIndex() : Number
-		{
-			return _zIndices[_mvpIndex];
-		}
 
 		/**
 		 * Used by the raycast-based picking system to determine how the geometric contents of an entity are processed
@@ -268,44 +283,9 @@ package away3d.entities
 			super();
 			
 			_bounds = getDefaultBoundingVolume();
+			_worldBounds = getDefaultBoundingVolume();
 		}
-		
-		/**
-		 * Updates the model-view-projection (MVP) matrix used to transform from model to homogeneous projection space
-		 * and places it on the stack. The stack allows nested rendering while keeping the MVP intact.
-		 * @param camera The camera which will perform the view transformation and projection.
-		 */
-		public function pushModelViewProjection(camera : Camera3D) : void
-		{
-			if (++_mvpIndex == _stackLen) {
-				_mvpTransformStack[_mvpIndex] = new Matrix3D();
-				_stackLen++;
-			}
 
-			var mvp : Matrix3D = _mvpTransformStack[_mvpIndex];
-			mvp.copyFrom(sceneTransform);
-			mvp.append(camera.viewProjection);
-			mvp.copyColumnTo(3, _pos);
-			_zIndices[_mvpIndex] = -_pos.z + 1000000 + _zOffset;
-		}
-		
-		/**
-		 * Same as before, but not guarding against bounds. Only to be used inside the render loop
-		 * @private
-		 */
-		public function getModelViewProjectionUnsafe() : Matrix3D
-		{
-			return _mvpTransformStack[_mvpIndex];
-		}
-		
-		/**
-		 * Removes a model view projection matrix from the stack, used when leaving a render.
-		 */
-		public function popModelViewProjection() : void
-		{
-			--_mvpIndex;
-		}
-		
 		/**
 		 * Gets a concrete EntityPartition3DNode subclass that is associated with this Entity instance
 		 */
@@ -371,18 +351,20 @@ package away3d.entities
 		 */
 		override protected function invalidateSceneTransform() : void
 		{
-			super.invalidateSceneTransform();
-			
-			notifySceneBoundsInvalid();
+			if (!_ignoreTransform) {
+				super.invalidateSceneTransform();
+				_worldBoundsInvalid = true;
+				notifySceneBoundsInvalid();
+			}
 		}
-		
+
 		/**
 		 * Invalidates the bounding volume, causing to be updated when requested.
 		 */
 		protected function invalidateBounds() : void
 		{
 			_boundsInvalid = true;
-			
+			_worldBoundsInvalid = true;
 			notifySceneBoundsInvalid();
 		}
 

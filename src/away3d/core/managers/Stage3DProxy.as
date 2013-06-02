@@ -1,20 +1,18 @@
-package away3d.core.managers
-{
+package away3d.core.managers {
+	import away3d.arcane;
+	import away3d.debug.Debug;
+	import away3d.events.Stage3DEvent;
+
 	import flash.display.Shape;
 	import flash.display.Stage3D;
 	import flash.display3D.Context3D;
+	import flash.display3D.Context3DClearMask;
 	import flash.display3D.Context3DRenderMode;
 	import flash.display3D.Program3D;
-	import flash.display3D.VertexBuffer3D;
 	import flash.display3D.textures.TextureBase;
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
 	import flash.geom.Rectangle;
-	import flash.system.System;
-	
-	import away3d.arcane;
-	import away3d.debug.Debug;
-	import away3d.events.Stage3DEvent;
 
 	use namespace arcane;
 
@@ -39,6 +37,7 @@ package away3d.core.managers
 		arcane var _stage3DIndex : int = -1;
 
 		private var _usesSoftwareRendering : Boolean;
+		private var _profile : String;
 		private var _stage3D : Stage3D;
 		private var _activeProgram3D : Program3D;
 		private var _stage3DManager : Stage3DManager;
@@ -47,8 +46,8 @@ package away3d.core.managers
 		private var _antiAlias : int;
 		private var _enableDepthAndStencil : Boolean;
 		private var _contextRequested : Boolean;
-		private var _activeVertexBuffers : Vector.<VertexBuffer3D> = new Vector.<VertexBuffer3D>(8, true);
-		private var _activeTextures : Vector.<TextureBase> = new Vector.<TextureBase>(8, true);
+		//private var _activeVertexBuffers : Vector.<VertexBuffer3D> = new Vector.<VertexBuffer3D>(8, true);
+		//private var _activeTextures : Vector.<TextureBase> = new Vector.<TextureBase>(8, true);
 		private var _renderTarget : TextureBase;
 		private var _renderSurfaceSelector : int;
 		private var _scissorRect : Rectangle;
@@ -59,7 +58,10 @@ package away3d.core.managers
 		private var _exitFrame : Event;
 		private var _viewportUpdated : Stage3DEvent;
 		private var _viewportDirty : Boolean;
-		
+		private var _bufferClear : Boolean;
+		private var _mouse3DManager : Mouse3DManager;
+		private var _touch3DManager : Touch3DManager;
+
 		private function notifyViewportUpdated():void
 		{
 			if (_viewportDirty)
@@ -107,7 +109,7 @@ package away3d.core.managers
 		 * @param stage3DManager
 		 * @param forceSoftware Whether to force software mode even if hardware acceleration is available.
 		 */
-		public function Stage3DProxy(stage3DIndex : int, stage3D : Stage3D, stage3DManager : Stage3DManager, forceSoftware : Boolean = false)
+		public function Stage3DProxy(stage3DIndex : int, stage3D : Stage3D, stage3DManager : Stage3DManager, forceSoftware : Boolean = false, profile : String = "baseline")
 		{
 			_stage3DIndex = stage3DIndex;
 			_stage3D = stage3D;
@@ -120,48 +122,12 @@ package away3d.core.managers
 			
 			// whatever happens, be sure this has highest priority
 			_stage3D.addEventListener(Event.CONTEXT3D_CREATE, onContext3DUpdate, false, 1000, false);
-			requestContext(forceSoftware);
+			requestContext(forceSoftware, profile);
 		}
 
-		/**
-		 * Assign the vertex buffer in the Context3D ready for use in the shader.
-		 * @param index The index for the vertex buffer setting
-		 * @param buffer The Vertex Buffer 
-		 * @param format The format of the buffer. See Context3DVertexBufferFormat
-		 * @param offset An offset from the start of the data
-		 */
-		public function setSimpleVertexBuffer(index : int, buffer : VertexBuffer3D, format : String, offset : int = 0) : void
+		public function get profile() : String
 		{
-			// force setting null
-			if (buffer && _activeVertexBuffers[index] == buffer) return;
-
-			_context3D.setVertexBufferAt(index, buffer, offset, format);
-			_activeVertexBuffers[index] = buffer;
-		}
-
-		/**
-		 * Assign the texture in the Context3D ready for use in the shader.
-		 * @param index The index where the texture is set
-		 * @param texture The texture to set
-		 */
-		public function setTextureAt(index : int, texture : TextureBase) : void
-		{
-			if (texture != null && _activeTextures[index] == texture) return;
-
-			_context3D.setTextureAt(index,  texture);
-
-			_activeTextures[index] = texture;
-		}
-
-		/**
-		 * Set the shader program for the subsequent rendering calls.
-		 * @param program3D The program to be used in the shader
-		 */
-		public function setProgram(program3D : Program3D) : void
-		{
-			if (_activeProgram3D == program3D) return;
-			_context3D.setProgram(program3D);
-			_activeProgram3D = program3D;
+			return _profile;
 		}
 
 		/**
@@ -211,8 +177,8 @@ package away3d.core.managers
 		}
 
 		public function set enableDepthAndStencil(enableDepthAndStencil : Boolean) : void
-		{ 
-			_enableDepthAndStencil = enableDepthAndStencil; 
+		{
+			_enableDepthAndStencil = enableDepthAndStencil;
 			_backBufferDirty = true;
 		}
 		
@@ -256,6 +222,8 @@ package away3d.core.managers
                 ((_color >> 8) & 0xff) / 255.0, 
                 (_color & 0xff) / 255.0,
                 ((_color >> 24) & 0xff) / 255.0 );
+				
+			_bufferClear = true;
 		}
 
 
@@ -269,6 +237,8 @@ package away3d.core.managers
 			_context3D.present();
 						
 			_activeProgram3D = null;
+
+			if (_mouse3DManager) _mouse3DManager.fireMouseEvents();
 		}
 		
 		/**
@@ -489,6 +459,37 @@ package away3d.core.managers
 		
 
 		/**
+		 * The freshly cleared state of the backbuffer before any rendering
+		 */
+		public function get bufferClear() : Boolean {
+			return _bufferClear;
+		}
+
+		public function set bufferClear(newBufferClear : Boolean) : void {
+			_bufferClear = newBufferClear;
+		}
+
+		/*
+		 * Access to fire mouseevents across multiple layered view3D instances
+		 */
+		public function get mouse3DManager() : Mouse3DManager {
+			return _mouse3DManager;
+		}
+
+		public function set mouse3DManager(value : Mouse3DManager) : void {
+			_mouse3DManager = value;
+		}
+
+		public function get touch3DManager() : Touch3DManager {
+			return _touch3DManager;
+		}
+
+		public function set touch3DManager(value : Touch3DManager) : void {
+			_touch3DManager = value;
+		}
+
+
+		/**
 		 * Frees the Context3D associated with this Stage3DProxy.
 		 */
 		private function freeContext3D() : void
@@ -508,10 +509,9 @@ package away3d.core.managers
 		{
 			if (_stage3D.context3D) {
 				var hadContext : Boolean = (_context3D != null);
-
 				_context3D = _stage3D.context3D;
 				_context3D.enableErrorChecking = Debug.active;
-				
+
 				_usesSoftwareRendering = (_context3D.driverInfo.indexOf('Software')==0);
 				
 				// Only configure back buffer if width and height have been set,
@@ -532,15 +532,28 @@ package away3d.core.managers
 		/**
 		 * Requests a Context3D object to attach to the managed Stage3D.
 		 */
-		private function requestContext(forceSoftware : Boolean = false) : void
+		private function requestContext(forceSoftware : Boolean = false, profile : String = "baseline") : void
 		{
 			// If forcing software, we can be certain that the
 			// returned Context3D will be running software mode.
 			// If not, we can't be sure and should stick to the
 			// old value (will likely be same if re-requesting.)
 			_usesSoftwareRendering ||= forceSoftware;
-			
-			_stage3D.requestContext3D(forceSoftware? Context3DRenderMode.SOFTWARE : Context3DRenderMode.AUTO);
+			_profile = profile;
+
+			// ugly stuff for backward compatibility
+			var renderMode : String = forceSoftware? Context3DRenderMode.SOFTWARE : Context3DRenderMode.AUTO;
+			if (profile == "baseline")
+				_stage3D.requestContext3D(renderMode);
+			else {
+				try {
+					_stage3D["requestContext3D"](renderMode, profile);
+				}
+				catch(error : Error) {
+					throw "An error occurred creating a context using the given profile. Profiles are not supported for the SDK this was compiled with.";
+				}
+			}
+
 			_contextRequested = true;
 		}
 		
@@ -575,6 +588,11 @@ package away3d.core.managers
 				return false;
 			}
 			return true;
+		}
+
+		public function clearDepthBuffer() : void {
+			if (!_context3D) return;
+			_context3D.clear(0, 0, 0, 1, 1, 0, Context3DClearMask.DEPTH);
 		}
 	}
 }

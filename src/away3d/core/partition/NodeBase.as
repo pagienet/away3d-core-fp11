@@ -1,9 +1,10 @@
 package away3d.core.partition
 {
+	import away3d.core.math.Plane3D;
+
 	import flash.geom.Vector3D;
 	
 	import away3d.arcane;
-	import away3d.cameras.Camera3D;
 	import away3d.core.traverse.PartitionTraverser;
 	import away3d.entities.Entity;
 	import away3d.primitives.WireframePrimitiveBase;
@@ -21,12 +22,13 @@ package away3d.core.partition
 	 */
 	public class NodeBase
 	{
-		protected var _parent : NodeBase;
+		arcane var _parent : NodeBase;
 		protected var _childNodes : Vector.<NodeBase>;
 		protected var _numChildNodes : uint;
-		private var _debugPrimitive : WireframePrimitiveBase;
+		protected var _debugPrimitive : WireframePrimitiveBase;
 
 		arcane var _numEntities : int;
+		arcane var _collectionMark : uint;
 
 		/**
 		 * Creates a new NodeBase object.
@@ -73,12 +75,12 @@ package away3d.core.partition
 		 *
 		 * @param node The node to be added as a child of the current node.
 		 */
-		public function addNode(node : NodeBase) : void
+		arcane function addNode(node : NodeBase) : void
 		{
 			node._parent = this;
 			_numEntities += node._numEntities;
 			_childNodes[_numChildNodes++] = node;
-			node.showDebugBounds = showDebugBounds;
+			node.showDebugBounds = _debugPrimitive != null;
 
 			// update numEntities in the tree
 			var numEntities : int = node._numEntities;
@@ -86,14 +88,14 @@ package away3d.core.partition
 
 			do {
 				node._numEntities += numEntities;
-			} while (node = node._parent);
+			} while ((node = node._parent) != null);
 		}
 
 		/**
 		 * Removes a child node from the tree.
 		 * @param node The child node to be removed.
 		 */
-		public function removeNode(node : NodeBase) : void
+		arcane function removeNode(node : NodeBase) : void
 		{
 			// a bit faster than splice(i, 1), works only if order is not important
 			// override item to be removed with the last in the list, then remove that last one
@@ -109,7 +111,7 @@ package away3d.core.partition
 
 			do {
 				node._numEntities -= numEntities;
-			} while (node = node._parent);
+			} while ((node = node._parent) != null);
 		}
 
 		/**
@@ -118,13 +120,13 @@ package away3d.core.partition
 		 *
 		 * @return Whether or not the node is at least partly inside the view frustum.
 		 */
-		public function isInFrustum(camera : Camera3D) : Boolean
+		public function isInFrustum(planes : Vector.<Plane3D>, numPlanes : int) : Boolean
 		{
-			// TODO: not used
-			camera = null; 
+			planes=planes;
+			numPlanes=numPlanes;
 			return true;
 		}
-		
+
 		/**
 		 * Tests if the current node is intersecting with a ray.
 		 * @param rayPosition The starting position of the ray
@@ -134,9 +136,8 @@ package away3d.core.partition
 		 */
 		public function isIntersectingRay(rayPosition : Vector3D, rayDirection : Vector3D) : Boolean
 		{
-			// TODO: not used
-			rayPosition = null; 
-			rayDirection = null;
+			rayPosition=rayPosition;
+			rayDirection=rayDirection;
 			return true;
 		}
 		
@@ -145,8 +146,7 @@ package away3d.core.partition
 		 */
 		public function findPartitionForEntity(entity : Entity) : NodeBase
 		{
-			// TODO: not used
-			entity = null; 
+			entity=entity;
 			return this;
 		}
 
@@ -162,22 +162,36 @@ package away3d.core.partition
 		 */
 		public function acceptTraverser(traverser : PartitionTraverser) : void
 		{
-			if (_numEntities == 0) return;
+			if (_numEntities == 0 && !_debugPrimitive) return;
 
 			if (traverser.enterNode(this)) {
 				var i : uint;
-				while (i < _numChildNodes) _childNodes[i++].acceptTraverser(traverser);
+				while (i < _numChildNodes)
+					_childNodes[i++].acceptTraverser(traverser);
 
 				if (_debugPrimitive)
 					traverser.applyRenderable(_debugPrimitive);
 			}
-
-			traverser.leaveNode(this);
 		}
 
 		protected function createDebugBounds() : WireframePrimitiveBase
 		{
 			return null;
+		}
+
+		protected function get numEntities() : int
+		{
+			return _numEntities;
+		}
+
+		protected function updateNumEntities(value : int) : void
+		{
+			var diff : int = value - _numEntities;
+			var node : NodeBase = this;
+
+			do {
+				node._numEntities += diff;
+			} while ((node = node._parent) != null);
 		}
 	}
 }

@@ -1,5 +1,9 @@
 ﻿package away3d.containers
 {
+
+	import away3d.core.managers.Touch3DManager;
+	import away3d.events.Scene3DEvent;
+
 	import flash.display.Sprite;
 	import flash.display3D.Context3D;
 	import flash.display3D.Context3DTextureFormat;
@@ -53,7 +57,9 @@
 		private var _backgroundColor : uint = 0x000000;
 		private var _backgroundAlpha : Number = 1;
 
-		private var _mouse3DManager : Mouse3DManager;
+		protected var _mouse3DManager : Mouse3DManager;
+
+		protected var _touch3DManager : Touch3DManager;
 
 		protected var _renderer : RendererBase;
 		private var _depthRenderer : DepthRenderer;
@@ -81,10 +87,14 @@
 		private var _menu0:ContextMenuItem;
 		private var _menu1:ContextMenuItem;
 		private var _ViewContextMenu:ContextMenu;
-		private var _shareContext:Boolean = false;
-		private var _scissorRect:Rectangle;
+		protected var _shareContext:Boolean = false;
+		protected var _scissorRect:Rectangle;
 		private var _scissorRectDirty:Boolean = true;
 		private var _viewportDirty:Boolean = true;
+		
+		private var _depthPrepass:Boolean;
+		private var _profile : String;
+		private var _layeredView : Boolean = false;
 		
 		private function viewSource(e:ContextMenuEvent):void 
 		{
@@ -95,8 +105,18 @@
 				
 			}
 		}
-		
-		private function visitWebsite(e:ContextMenuEvent):void 
+
+		public function get depthPrepass() : Boolean
+		{
+			return _depthPrepass;
+		}
+
+		public function set depthPrepass(value : Boolean) : void
+		{
+			_depthPrepass = value;
+		}
+
+		private function visitWebsite(e:ContextMenuEvent):void
 		{
 			var url:String = Away3D.WEBSITE_URL;
 			var request:URLRequest = new URLRequest(url);
@@ -129,11 +149,12 @@
 		}
 		
 		
-		public function View3D(scene : Scene3D = null, camera : Camera3D = null, renderer : RendererBase = null, forceSoftware:Boolean = false)
+		public function View3D(scene : Scene3D = null, camera : Camera3D = null, renderer : RendererBase = null, forceSoftware:Boolean = false, profile:String = "baseline")
 		{
 			super();
-
+			_profile = profile;
 			_scene = scene || new Scene3D();
+			_scene.addEventListener(Scene3DEvent.PARTITION_CHANGED, onScenePartitionChanged);
 			_camera = camera || new Camera3D();
 			_renderer = renderer || new DefaultRenderer();
 			_depthRenderer = new DepthRenderer();
@@ -141,13 +162,18 @@
 			
 			// todo: entity collector should be defined by renderer
 			_entityCollector = _renderer.createEntityCollector();
-
+			_entityCollector.camera = _camera;
+			
 			_scissorRect = new Rectangle();
 
 			initHitField();
 			
 			_mouse3DManager = new Mouse3DManager();
 			_mouse3DManager.enableMouseListeners(this);
+
+			_touch3DManager = new Touch3DManager();
+			_touch3DManager.view = this;
+			_touch3DManager.enableTouchListeners( this );
 			
 			addEventListener(Event.ADDED_TO_STAGE, onAddedToStage, false, 0, true);
 			addEventListener(Event.ADDED, onAdded, false, 0, true);
@@ -158,6 +184,11 @@
 			_camera.partition = _scene.partition;
 			
 			initRightClickMenu();
+		}
+
+		private function onScenePartitionChanged(event : Scene3DEvent) : void
+		{
+			if (_camera) _camera.partition = scene.partition;
 		}
 		
 		public function get rightClickMenuEnabled() : Boolean
@@ -204,6 +235,7 @@
 		public function set forceMouseMove(value : Boolean) : void
 		{
 			_mouse3DManager.forceMouseMove = value;
+			_touch3DManager.forceTouchMove = value;
 		}
 
 		public function get background() : Texture2DBase
@@ -215,6 +247,22 @@
 		{
 			_background = value;
 			_renderer.background = _background;
+		}
+
+		/**
+		 * Used in a sharedContext. When true, clears the depth buffer prior to rendering this particular
+		 * view to avoid depth sorting with lower layers. When false, the depth buffer is not cleared
+		 * from the previous (lower) view's render so objects in this view may be occluded by the lower
+		 * layer. Defaults to false.
+		 */
+		public function get layeredView() : Boolean
+		{
+			return _layeredView;
+		}
+
+		public function set layeredView(value : Boolean) : void
+		{
+			_layeredView = value;
 		}
 
 		private function initHitField() : void
@@ -288,6 +336,7 @@
 			_renderer.dispose();
 			_renderer = value;
 			_entityCollector = _renderer.createEntityCollector();
+			_entityCollector.camera = _camera;
 			_renderer.stage3DProxy = _stage3DProxy;
 			_renderer.antiAlias = _antiAlias;
 			_renderer.backgroundR = ((_backgroundColor >> 16) & 0xff) / 0xff;
@@ -348,6 +397,7 @@
 			_camera.removeEventListener(CameraEvent.LENS_CHANGED, onLensChanged);
 			
 			_camera = camera;
+			_entityCollector.camera = _camera;
 			
 			if (_scene)
 				_camera.partition = _scene.partition;
@@ -371,7 +421,9 @@
 		 */
 		public function set scene(scene:Scene3D) : void
 		{
+			_scene.removeEventListener(Scene3DEvent.PARTITION_CHANGED, onScenePartitionChanged);
 			_scene = scene;
+			_scene.addEventListener(Scene3DEvent.PARTITION_CHANGED, onScenePartitionChanged);
 			
 			if (_camera)
 				_camera.partition = _scene.partition;
@@ -589,7 +641,10 @@
 			// reset or update render settings
 			if (_backBufferInvalid)
 				updateBackBuffer();
-				
+			
+			if (_shareContext && _layeredView)
+				stage3DProxy.clearDepthBuffer();
+
 			if (!_parentIsStage) {
 				var globalPos : Point = parent.localToGlobal(_localPos);
 				if (_globalPos.x != globalPos.x || _globalPos.y != globalPos.y) {
@@ -603,25 +658,29 @@
 
 			updateTime();
 
-			_entityCollector.clear();
-
 			updateViewSizeData();
+
+			_entityCollector.clear();
 
 			// collect stuff to render
 			_scene.traversePartitions(_entityCollector);
 
 			// update picking
 			_mouse3DManager.updateCollider(this);
-
-//			updateLights(_entityCollector);
+			_touch3DManager.updateCollider();
 
 			if (_requireDepthRender)
-				renderSceneDepth(_entityCollector);
+				renderSceneDepthToTexture(_entityCollector);
+
+			// todo: perform depth prepass after light update and before final render
+			if (_depthPrepass)
+				renderDepthPrepass(_entityCollector);
+
+			_renderer.clearOnRender = !_depthPrepass;
 
 			if (_filter3DRenderer && _stage3DProxy._context3D) {
 				_renderer.render(_entityCollector, _filter3DRenderer.getMainInputTexture(_stage3DProxy), _rttBufferManager.renderToTextureRect);
 				_filter3DRenderer.render(_stage3DProxy, camera, _depthRender);
-				if (!_shareContext) _stage3DProxy._context3D.present();
 			} else {
 				_renderer.shareContext = _shareContext;
 				if (_shareContext) {
@@ -629,14 +688,22 @@
 				} else {
 					_renderer.render(_entityCollector);
 				}
-				
+
+			}
+			
+			if (!_shareContext) {
+				stage3DProxy.present();
+
+				// fire collected mouse events
+				_mouse3DManager.fireMouseEvents();
+				_touch3DManager.fireTouchEvents();
 			}
 
 			// clean up data for this render
 			_entityCollector.cleanUp();
-
-			// fire collected mouse events
-			_mouse3DManager.fireMouseEvents();
+			
+			// register that a view has been rendered
+			stage3DProxy.bufferClear = false;
 		}
 
 		protected function updateGlobalPos() : void
@@ -667,7 +734,7 @@
 			_time = time;
 		}
 
-		private function updateViewSizeData() : void
+		protected function updateViewSizeData() : void
 		{
 			_camera.lens.aspectRatio = _aspectRatio;
 			
@@ -680,8 +747,6 @@
 				_viewportDirty = false;
 				_camera.lens.updateViewport(_stage3DProxy.viewPort.x, _stage3DProxy.viewPort.y, _stage3DProxy.viewPort.width, _stage3DProxy.viewPort.height);
 			}
-			
-			_entityCollector.camera = _camera;
 
 			if (_filter3DRenderer || _renderer.renderToTexture) {
 				_renderer.textureRatioX = _rttBufferManager.textureRatioX;
@@ -692,8 +757,24 @@
 				_renderer.textureRatioY = 1;
 			}
 		}
-		
-		protected function renderSceneDepth(entityCollector : EntityCollector) : void
+
+		protected function renderDepthPrepass(entityCollector : EntityCollector) : void
+		{
+			_depthRenderer.disableColor = true;
+			if (_filter3DRenderer || _renderer.renderToTexture) {
+				_depthRenderer.textureRatioX = _rttBufferManager.textureRatioX;
+				_depthRenderer.textureRatioY = _rttBufferManager.textureRatioY;
+				_depthRenderer.render(entityCollector, _filter3DRenderer.getMainInputTexture(_stage3DProxy), _rttBufferManager.renderToTextureRect);
+			}
+			else {
+				_depthRenderer.textureRatioX = 1;
+				_depthRenderer.textureRatioY = 1;
+				_depthRenderer.render(entityCollector);
+			}
+			_depthRenderer.disableColor = false;
+		}
+
+		protected function renderSceneDepthToTexture(entityCollector : EntityCollector) : void
 		{
 			if (_depthTextureInvalid || !_depthRender) initDepthTexture(_stage3DProxy._context3D);
 			_depthRenderer.textureRatioX = _rttBufferManager.textureRatioX;
@@ -715,7 +796,10 @@
 		 */
 		public function dispose() : void
 		{
-			_stage3DProxy.dispose();
+			_stage3DProxy.removeEventListener(Stage3DEvent.VIEWPORT_UPDATED, onViewportUpdated);
+			if (!shareContext) {
+				_stage3DProxy.dispose();
+			}
 			_renderer.dispose();
 			
 			if (_depthRender)
@@ -723,18 +807,29 @@
 			
 			if (_rttBufferManager)
 				_rttBufferManager.dispose();
-			
+
 			_mouse3DManager.disableMouseListeners(this);
+			_mouse3DManager.dispose();
+
+			_touch3DManager.disableTouchListeners( this );
+			_touch3DManager.dispose();
 			
 			_rttBufferManager = null;
 			_depthRender = null;
 			_mouse3DManager = null;
+			_touch3DManager = null;
 			_depthRenderer = null;
 			_stage3DProxy = null;
 			_renderer = null;
 			_entityCollector = null;
 		}
-
+		
+		/**
+		 * Calculates the projected position in screen space of the given scene position.
+		 * 
+		 * @param point3d the position vector of the point to be projected.
+		 * @return The absolute screen position of the given scene coordinates.
+		 */
 		public function project(point3d : Vector3D) : Vector3D
 		{
 			var v : Vector3D = _camera.project(point3d);
@@ -747,26 +842,32 @@
 
 		/**
 		 * Calculates the scene position of the given screen coordinates.
-		 * @param mX The x coordinate relative to the View3D.
-		 * @param mY The y coordinate relative to the View3D.
-		 * @param mZ The z coordinate relative to the View3D.
-		 * @return The scene position of the given screen coordinates. The returned point corresponds to a point on the projection plane.
+		 * 
+		 * eg. unproject(view.mouseX, view.mouseY, 500) returns the scene position of the mouse 500 units into the screen.
+		 * 
+		 * @param sX The absolute x coordinate in 2D relative to View3D, representing the screenX coordinate.
+		 * @param sY The absolute y coordinate in 2D relative to View3D, representing the screenY coordinate.
+		 * @param sZ The distance into the screen, representing the screenZ coordinate.
+		 * @return The scene position of the given screen coordinates.
 		 */
-		public function unproject(mX : Number, mY : Number, mZ : Number = 0) : Vector3D
+		public function unproject(sX : Number, sY : Number, sZ : Number) : Vector3D
 		{
-			return _camera.unproject((mX * 2 - _width)/_width, (mY * 2 - _height)/_height, mZ);
+ 			return _camera.unproject((sX * 2 - _width)/_stage3DProxy.width, (sY * 2 - _height)/_stage3DProxy.height, sZ);
 		}
 
 		/**
-		 * Returns the ray in scene space from the camera to the point on the screen.
-		 * @param mX The x coordinate relative to the View3D.
-		 * @param mY The y coordinate relative to the View3D.
-		 * @param mZ The z coordinate relative to the View3D.
-		 * @return The ray from the camera to the scene space position of a point on the projection plane.
+		 * Calculates the ray in scene space from the camera to the given screen coordinates.
+		 * 
+		 * eg. getRay(view.mouseX, view.mouseY, 500) returns the ray from the camera to a position under the mouse, 500 units into the screen.
+		 * 
+		 * @param sX The absolute x coordinate in 2D relative to View3D, representing the screenX coordinate.
+		 * @param sY The absolute y coordinate in 2D relative to View3D, representing the screenY coordinate.
+		 * @param sZ The distance into the screen, representing the screenZ coordinate.
+		 * @return The ray from the camera to the scene space position of the given screen coordinates.
 		 */
-		public function getRay(mX : Number, mY : Number, mZ : Number = 0) : Vector3D
+		public function getRay(sX : Number, sY : Number, sZ : Number) : Vector3D
 		{
-			return _camera.getRay((mX * 2 - _width)/_width, (mY * 2 - _height)/_height, mZ);
+			return _camera.getRay((sX * 2 - _width)/_width, (sY * 2 - _height)/_height, sZ);
 		}
 		
 		public function get mousePicker() : IPicker
@@ -777,6 +878,14 @@
 		public function set mousePicker(value : IPicker) : void
 		{
 			_mouse3DManager.mousePicker = value;
+		}
+
+		public function get touchPicker():IPicker {
+			return _touch3DManager.touchPicker;
+		}
+
+		public function set touchPicker( value:IPicker ):void {
+			_touch3DManager.touchPicker = value;
 		}
 
 		/**
@@ -807,7 +916,7 @@
 			_addedToStage = true;
 			
 			if (!_stage3DProxy) {
-				_stage3DProxy = Stage3DManager.getInstance(stage).getFreeStage3DProxy(_forceSoftware);
+				_stage3DProxy = Stage3DManager.getInstance(stage).getFreeStage3DProxy(_forceSoftware, _profile);
 				_stage3DProxy.addEventListener(Stage3DEvent.VIEWPORT_UPDATED, onViewportUpdated);
 				
 			}
@@ -823,6 +932,8 @@
 			else _rttBufferManager.viewWidth = _width;
 			if (_height == 0) height = stage.stageHeight;
 			else _rttBufferManager.viewHeight = _height;
+			
+			if (_shareContext) _mouse3DManager.addViewLayer(this);
 		}
 
 		private function onAdded(event : Event) : void

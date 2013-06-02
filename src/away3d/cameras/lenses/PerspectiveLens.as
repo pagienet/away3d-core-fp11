@@ -1,7 +1,7 @@
-package away3d.cameras.lenses
-{
-	import away3d.containers.View3D;
+package away3d.cameras.lenses {
 	import away3d.core.math.Matrix3DUtils;
+
+	import flash.geom.Vector3D;
 
 	/**
 	 * The PerspectiveLens object provides a projection matrix that projects 3D geometry with perspective distortion.
@@ -9,12 +9,15 @@ package away3d.cameras.lenses
 	public class PerspectiveLens extends LensBase
 	{
 		private var _fieldOfView : Number;
+		private var _focalLength : Number;
 		private var _focalLengthInv : Number;
 		private var _yMax : Number;
 		private var _xMax : Number;
 
+
 		/**
 		 * Creates a new PerspectiveLens object.
+		 * 
 		 * @param fieldOfView The vertical field of view of the projection.
 		 */
 		public function PerspectiveLens(fieldOfView : Number = 60)
@@ -24,7 +27,7 @@ package away3d.cameras.lenses
 		}
 
 		/**
-		 * The vertical field of view of the projection.
+		 * The vertical field of view of the projection in degrees.
 		 */
 		public function get fieldOfView() : Number
 		{
@@ -33,11 +36,68 @@ package away3d.cameras.lenses
 
 		public function set fieldOfView(value : Number) : void
 		{
-			if (value == _fieldOfView) return;
+			if (value == _fieldOfView)
+				return;
+			
 			_fieldOfView = value;
-			// tan(fov/2)
+			
 			_focalLengthInv = Math.tan(_fieldOfView*Math.PI/360);
+			_focalLength = 1/_focalLengthInv;
+			
 			invalidateMatrix();
+		}
+		
+		/**
+		 * The focal length of the projection in units of viewport height.
+		 */
+		public function get focalLength() : Number
+		{
+			return _focalLength;
+		}
+		
+		public function set focalLength(value : Number) : void
+		{
+			if (value == _focalLength)
+				return;
+			
+			_focalLength = value;
+			
+			_focalLengthInv = 1/_focalLength;
+			_fieldOfView = Math.atan(_focalLengthInv)*360/Math.PI;
+			
+			invalidateMatrix();
+		}
+
+		/**
+		 * Calculates the scene position relative to the camera of the given normalized coordinates in screen space.
+		 * 
+		 * @param nX The normalised x coordinate in screen space, -1 corresponds to the left edge of the viewport, 1 to the right.
+		 * @param nY The normalised y coordinate in screen space, -1 corresponds to the top edge of the viewport, 1 to the bottom.
+		 * @param sZ The z coordinate in screen space, representing the distance into the screen.
+		 * @return The scene position relative to the camera of the given screen coordinates.
+		 */
+		override public function unproject(nX:Number, nY:Number, sZ : Number):Vector3D
+		{
+			var v : Vector3D = new Vector3D(nX, -nY, sZ, 1.0);
+			
+            v.x *= sZ;
+            v.y *= sZ;
+			
+			v = unprojectionMatrix.transformVector(v);
+			
+			//z is unaffected by transform
+            v.z = sZ;
+			
+			return v;
+		}
+
+		override public function clone() : LensBase
+		{
+			var clone : PerspectiveLens = new PerspectiveLens(_fieldOfView);
+			clone._near = _near;
+			clone._far = _far;
+			clone._aspectRatio = _aspectRatio;
+			return clone;
 		}
 
 		/**
@@ -51,14 +111,14 @@ package away3d.cameras.lenses
 			_xMax = _yMax*_aspectRatio;
 
 			var left:Number, right:Number, top:Number, bottom:Number;
-			
+
 			if (_scissorRect.x == 0 && _scissorRect.y == 0 && _scissorRect.width == _viewPort.width && _scissorRect.height == _viewPort.height) {
 				// assume unscissored frustum
 				left = -_xMax;
 				right = _xMax;
 				top = -_yMax;
 				bottom = _yMax;
-				
+				// assume unscissored frustum
 				raw[uint(0)] = _near/_xMax;
 				raw[uint(5)] = _near/_yMax;
 				raw[uint(10)] = _far/(_far-_near);
@@ -73,7 +133,7 @@ package away3d.cameras.lenses
 				var yHgt:Number = _yMax * (_viewPort.height / _scissorRect.height);
 				var center:Number = _xMax * (_scissorRect.x * 2 - _viewPort.width) / _scissorRect.width + _xMax;
 				var middle:Number = -_yMax * (_scissorRect.y * 2 - _viewPort.height) / _scissorRect.height - _yMax;
-				
+
 				left = center - xWidth;
 				right = center + xWidth;
 				top = middle - yHgt;
