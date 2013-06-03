@@ -32,7 +32,6 @@ package away3d.core.pick
 	{
 		private var _stage3DProxy:Stage3DProxy;
 		private var _context:Context3D;
-		private var _onlyMouseEnabled:Boolean = true;
 		
 		private var _objectProgram3D : Program3D;
 		private var _triangleProgram3D : Program3D;
@@ -57,19 +56,6 @@ package away3d.core.pick
 		private var _rayDir : Vector3D = new Vector3D();
 		private var _potentialFound : Boolean;
 		private static const MOUSE_SCISSOR_RECT : Rectangle = new Rectangle(0, 0, 1, 1);
-		
-		/**
-		 * @inheritDoc
-		 */
-		public function get onlyMouseEnabled():Boolean
-		{
-			return _onlyMouseEnabled;
-		}
-		
-		public function set onlyMouseEnabled(value:Boolean):void
-		{
-			_onlyMouseEnabled = value;
-		}
 		
 		/**
 		 * Creates a new <code>ShaderPicker</code> object.
@@ -181,7 +167,7 @@ package away3d.core.pick
 				renderable = item.renderable;
 
 				// it's possible that the renderable was already removed from the scene
-				if (!renderable.sourceEntity.scene || (!renderable.mouseEnabled && _onlyMouseEnabled)) {
+				if (!renderable.sourceEntity.scene || !renderable.mouseEnabled) {
 					item = item.next;
 					continue;
 				}
@@ -228,8 +214,8 @@ package away3d.core.pick
 							"mov op, vt0	\n";
 			fragmentCode =  "mov oc, fc0";		// write identifier
 
-			_objectProgram3D.upload(	new AGALMiniAssembler().assemble(Context3DProgramType.VERTEX, vertexCode),
-										new AGALMiniAssembler().assemble(Context3DProgramType.FRAGMENT, fragmentCode));
+			_objectProgram3D.upload(	new Away3DAGALAssembler().assemble(Context3DProgramType.VERTEX, vertexCode),
+										new Away3DAGALAssembler().assemble(Context3DProgramType.FRAGMENT, fragmentCode));
 		}
 
 		/**
@@ -253,8 +239,8 @@ package away3d.core.pick
 							"mov op, vt0	\n";
 			fragmentCode =  "mov oc, v0";		// write identifier
 
-			_triangleProgram3D.upload(	new AGALMiniAssembler().assemble(Context3DProgramType.VERTEX, vertexCode),
-										new AGALMiniAssembler().assemble(Context3DProgramType.FRAGMENT, fragmentCode));
+			_triangleProgram3D.upload(	new Away3DAGALAssembler().assemble(Context3DProgramType.VERTEX, vertexCode),
+										new Away3DAGALAssembler().assemble(Context3DProgramType.FRAGMENT, fragmentCode));
 		}
 
 		/**
