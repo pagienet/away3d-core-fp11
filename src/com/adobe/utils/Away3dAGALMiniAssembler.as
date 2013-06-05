@@ -40,7 +40,7 @@ package com.adobe.utils
 	// ===========================================================================
 	//	Class
 	// ---------------------------------------------------------------------------
-	public class AGALMiniAssembler
+	public class Away3dAGALMiniAssembler
 	{		// ======================================================================
 		//	Constants
 		// ----------------------------------------------------------------------				
@@ -67,7 +67,7 @@ package com.adobe.utils
 		// ======================================================================
 		//	Constructor
 		// ----------------------------------------------------------------------
-		public function AGALMiniAssembler( debugging:Boolean = false ):void
+		public function Away3dAGALMiniAssembler( debugging:Boolean = false ):void
 		{
 			debugEnabled = debugging;
 			if ( !initialized )
@@ -138,7 +138,7 @@ package com.adobe.utils
 				if ( !opCode ) 
 				{
 					if ( line.length >= 3 )
-						trace( "warning: bad line "+i+": "+lines[i] );
+						throw new Error( "warning: bad line "+i+": "+lines[i] );
 					continue;
 				}
 				var opFound:OpCode = OPMAP[ opCode[0] ];
@@ -424,7 +424,7 @@ package com.adobe.utils
 			{
 				_error += "\n  at line " + i + " " + lines[i];
 				agalcode.length = 0;
-				trace( _error );
+				throw new Error( _error );
 			}
 			
 			// trace the bytecode bytes if debugging is enabled
