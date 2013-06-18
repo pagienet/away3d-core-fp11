@@ -199,6 +199,8 @@ package away3d.core.managers
 		private function onTouchMove( event:TouchEvent ):void {
 
 			var touch:TouchPoint = _touchPointFromId[ event.touchPointID ];
+			if( !touch ) return;
+
 			touch.x = event.stageX;
 			touch.y = event.stageY;
 

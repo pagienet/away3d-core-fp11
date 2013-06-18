@@ -78,7 +78,7 @@ package away3d.core.pick
 			var entity : Entity;
 			while (node) {
 				entity = node.entity;
-				
+
 				if (isIgnored(entity)) {
 					node = node.next;
 					continue;
