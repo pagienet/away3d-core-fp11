@@ -26,6 +26,11 @@ package away3d.loaders.parsers
 	import away3d.animators.nodes.SkeletonClipNode;
 	import away3d.animators.nodes.UVClipNode;
 	import away3d.animators.nodes.VertexClipNode;
+	import away3d.cameras.Camera3D;
+	import away3d.cameras.lenses.LensBase;
+	import away3d.cameras.lenses.OrthographicLens;
+	import away3d.cameras.lenses.OrthographicOffCenterLens;
+	import away3d.cameras.lenses.PerspectiveLens;
 	import away3d.containers.ObjectContainer3D;
 	import away3d.core.base.CompactSubGeometry;
 	import away3d.core.base.Geometry;
@@ -296,7 +301,7 @@ package away3d.loaders.parsers
 		override arcane function resolveDependencyFailure(resourceDependency:ResourceDependency):void
 		{
 			//not used - if a dependcy fails, the awaiting Texture or CubeTexture will never be finalized, and the default-bitmaps will be used.
-			// this means, that if one Bitmap of a CubeTexture fails, the CubeTexture will have th DefaultTexture applied for all six Bitmaps.
+			// this means, that if one Bitmap of a CubeTexture fails, the CubeTexture will have the DefaultTexture applied for all six Bitmaps.
 		}
 		
 		/**
@@ -493,6 +498,10 @@ package away3d.loaders.parsers
 						parseLight(_cur_block_id);
 						isParsed = true;
 						break;
+					case 42: 
+						parseCamera(_cur_block_id);
+						isParsed = true;
+						break;
 					case 43: 
 						parseTextureProjector(_cur_block_id);
 						isParsed = true;
@@ -531,6 +540,10 @@ package away3d.loaders.parsers
 						break;
 					case 122: 
 						parseAnimatorSet(_cur_block_id);
+						isParsed = true;
+						break;
+					case 253: 
+						parseCommand(_cur_block_id);
 						isParsed = true;
 						break;
 				}
@@ -819,7 +832,7 @@ package away3d.loaders.parsers
 			ctr = new ObjectContainer3D();
 			ctr.transform = mtx;
 			var returnedArray:Array = getAssetByID(par_id, [AssetType.CONTAINER, AssetType.LIGHT, AssetType.MESH, AssetType.ENTITY, AssetType.SEGMENT_SET])
-			if (returnedArray[0] == true)
+			if (returnedArray[0])
 			{
 				ObjectContainer3D(returnedArray[1]).addChild(ctr);
 				parentName=ObjectContainer3D(returnedArray[1]).name;
@@ -861,7 +874,7 @@ package away3d.loaders.parsers
 			var data_id:uint = _newBlockBytes.readUnsignedInt();
 			var geom:Geometry;
 			var returnedArrayGeometry:Array = getAssetByID(data_id, [AssetType.GEOMETRY])
-			if (returnedArrayGeometry[0] == true)
+			if (returnedArrayGeometry[0])
 			{
 				geom = returnedArrayGeometry[1] as Geometry;
 			}
@@ -895,7 +908,7 @@ package away3d.loaders.parsers
 			mesh.transform = mtx;
 			
 			var returnedArrayParent:Array = getAssetByID(par_id, [AssetType.CONTAINER, AssetType.LIGHT, AssetType.MESH, AssetType.ENTITY, AssetType.SEGMENT_SET])
-			if (returnedArrayParent[0] == true){
+			if (returnedArrayParent[0]){
 				ObjectContainer3D(returnedArrayParent[1]).addChild(mesh);
 				parentName=ObjectContainer3D(returnedArrayParent[1]).name;
 			}
@@ -942,7 +955,7 @@ package away3d.loaders.parsers
 			var cubeTexAddr:uint = _newBlockBytes.readUnsignedInt();
 			
 			var returnedArrayCubeTex:Array = getAssetByID(cubeTexAddr, [AssetType.TEXTURE], "CubeTexture");
-			if ((returnedArrayCubeTex[0] == false) && (cubeTexAddr != 0))
+			if ((!returnedArrayCubeTex[0]) && (cubeTexAddr != 0))
 				_blocks[blockID].addError("Could not find the Cubetexture (ID = " + cubeTexAddr + " ) for this SkyBox");
 			var asset:SkyBox = new SkyBox(returnedArrayCubeTex[1] as BitmapCubeTexture);
 			
@@ -1017,7 +1030,7 @@ package away3d.loaders.parsers
 			if (par_id != 0)
 			{
 				var returnedArrayParent:Array = getAssetByID(par_id, [AssetType.CONTAINER, AssetType.LIGHT, AssetType.MESH, AssetType.ENTITY, AssetType.SEGMENT_SET])
-				if (returnedArrayParent[0] == true){
+				if (returnedArrayParent[0]){
 					ObjectContainer3D(returnedArrayParent[1]).addChild(light);
 					parentName=ObjectContainer3D(returnedArrayParent[1]).name;}
 				else
@@ -1035,6 +1048,54 @@ package away3d.loaders.parsers
 		}
 		
 		//Block ID = 43
+		private function parseCamera(blockID:uint):void
+		{
+			
+			var par_id:uint = _newBlockBytes.readUnsignedInt();
+			var mtx:Matrix3D = parseMatrix3D();
+			var name:String = parseVarStr();
+			var parentName:String = "Root (TopLevel)";
+			var lens:LensBase;
+			_newBlockBytes.readUnsignedByte();//set as active camera
+			_newBlockBytes.readShort();//lengthof lenses - not used yet
+			var lenstype:uint=_newBlockBytes.readShort();
+			var props:AWDProperties = parseProperties({101: _propsNrType, 102: _propsNrType, 103: _propsNrType, 104: _propsNrType});
+			switch (lenstype){
+				case 5001:
+					lens=new PerspectiveLens(props.get(101,60));
+					break;
+				case 5002:
+					lens=new OrthographicLens(props.get(101,500));
+					break;
+				case 5003:
+					lens=new OrthographicOffCenterLens(props.get(101,-400),props.get(102,400),props.get(103,-300),props.get(104,300));
+					break;
+				default:
+					trace("unsupportedLenstype");
+					return;
+			}
+			var camera:Camera3D=new Camera3D(lens);
+			camera.transform=mtx;
+			var returnedArrayParent:Array = getAssetByID(par_id, [AssetType.CONTAINER, AssetType.LIGHT, AssetType.MESH, AssetType.ENTITY, AssetType.SEGMENT_SET])
+			if (returnedArrayParent[0]){
+				ObjectContainer3D(returnedArrayParent[1]).addChild(camera);
+				parentName=ObjectContainer3D(returnedArrayParent[1]).name;
+			}
+			else if (par_id > 0)
+				_blocks[blockID].addError("Could not find a parent for this Camera");
+			camera.name = name;
+			props = parseProperties({1: _matrixNrType, 2: _matrixNrType, 3: _matrixNrType, 4: UINT8});
+			camera.pivotPoint = new Vector3D(props.get(1, 0), props.get(2, 0), props.get(3, 0));
+			camera.extra = parseUserAttributes();
+			finalizeAsset(camera, name);
+			
+			_blocks[blockID].data = camera
+			if (_debug)
+				trace("Parsed a Camera: Name = '"+name+"' | Lenstype = "+lens+" | Parent-Name = "+parentName);
+			
+		}
+		
+		//Block ID = 43
 		private function parseTextureProjector(blockID:uint):void
 		{
 			
@@ -1044,7 +1105,7 @@ package away3d.loaders.parsers
 			var parentName:String = "Root (TopLevel)";
 			var tex_id:uint = _newBlockBytes.readUnsignedInt();
 			var returnedArrayGeometry:Array = getAssetByID(tex_id, [AssetType.TEXTURE])
-			if ((returnedArrayGeometry[0] == false) && (tex_id != 0))
+			if ((!returnedArrayGeometry[0]) && (tex_id != 0))
 			{
 				_blocks[blockID].addError("Could not find the Texture (ID = " + tex_id + " ( for this TextureProjector!");
 			}
@@ -1052,7 +1113,8 @@ package away3d.loaders.parsers
 			textureProjector.name = name;
 			textureProjector.aspectRatio = _newBlockBytes.readFloat();
 			textureProjector.fieldOfView = _newBlockBytes.readFloat();
-			var props:Object = parseProperties({1: _matrixNrType, 2: _matrixNrType, 3: _matrixNrType, 4: UINT8});
+			textureProjector.transform=mtx;
+			var props:AWDProperties = parseProperties({1: _matrixNrType, 2: _matrixNrType, 3: _matrixNrType, 4: UINT8});
 			textureProjector.pivotPoint = new Vector3D(props.get(1, 0), props.get(2, 0), props.get(3, 0));
 			textureProjector.extra = parseUserAttributes();
 			finalizeAsset(textureProjector, name);
@@ -1077,7 +1139,7 @@ package away3d.loaders.parsers
 			{
 				lightID = _newBlockBytes.readUnsignedInt();
 				returnedArrayLight = getAssetByID(lightID, [AssetType.LIGHT])
-				if (returnedArrayLight[0] == true){
+				if (returnedArrayLight[0]){
 					lightsArray.push(returnedArrayLight[1] as LightBase);
 					lightsArrayNames.push(LightBase(returnedArrayLight[1]).name);
 				}
@@ -1140,24 +1202,37 @@ package away3d.loaders.parsers
 				debugString+="Parsed a ColorMaterial(SinglePass): Name = '"+name+"' | "; 
 				var color:uint;
 				color = props.get(1, 0xcccccc);
-				mat = new ColorMaterial(color, props.get(10, 1.0));
+                if(materialMode<2)
+				    mat = new ColorMaterial(color, props.get(10, 1.0));
+                else
+				    mat = new ColorMultiPassMaterial(color);
+                    
 				
 			}
 			else if (type == 2)
 			{
 				var tex_addr:uint = props.get(2, 0);
 				returnedArray = getAssetByID(tex_addr, [AssetType.TEXTURE])
-				if ((returnedArray[0] == false)&&(tex_addr>0))
+				if ((!returnedArray[0])&&(tex_addr>0))
 					_blocks[blockID].addError("Could not find the DiffsueTexture (ID = " + tex_addr + " ) for this Material");
 				
-				mat = new TextureMaterial(returnedArray[1]);
-				TextureMaterial(mat).alphaBlending = props.get(11, false);
-				TextureMaterial(mat).alpha = props.get(10, 1.0);
-				debugString+="Parsed a TextureMaterial(SinglePass): Name = '"+name+"' | Texture-Name = "+mat.name; 
+                if(materialMode<2){
+                    mat = new TextureMaterial(returnedArray[1]);
+                    TextureMaterial(mat).alphaBlending = props.get(11, false);
+                    TextureMaterial(mat).alpha = props.get(10, 1.0);
+                    debugString += "Parsed a TextureMaterial(SinglePass): Name = '" + name + "' | Texture-Name = " + mat.name; 
+                    }
+                else{
+                    mat = new TextureMultiPassMaterial(returnedArray[1]);
+                    debugString += "Parsed a TextureMaterial(MultipAss): Name = '" + name + "' | Texture-Name = " + mat.name; 
+                    }
 			}
 			
 			mat.extra = attributes;
-			SinglePassMaterialBase(mat).alphaThreshold = props.get(12, 0.0);
+            if(materialMode<2)
+			    SinglePassMaterialBase(mat).alphaThreshold = props.get(12, 0.0);
+            else
+			    MultiPassMaterialBase(mat).alphaThreshold = props.get(12, 0.0);
 			mat.repeat = props.get(13, true);
 			
 			finalizeAsset(mat, name);
@@ -1186,6 +1261,10 @@ package away3d.loaders.parsers
 				_blocks[blockID].addError("Material-spezialType '"+spezialType+"' is not supported, can only be 0:singlePass, 1:MultiPass !");
 				return;
 			}
+            if (materialMode == 1)
+                spezialType = 0;
+            else if (materialMode == 2)
+                spezialType = 1;
 			if (spezialType < 2)
 			{ //this is SinglePass or MultiPass					
 				if (type == 1)
@@ -1208,16 +1287,16 @@ package away3d.loaders.parsers
 					
 					var tex_addr:uint = props.get(2, 0);
 					returnedArray = getAssetByID(tex_addr, [AssetType.TEXTURE])
-					if ((returnedArray[0] == false)&&(tex_addr>0))
+					if ((!returnedArray[0])&&(tex_addr>0))
 						_blocks[blockID].addError("Could not find the DiffsueTexture (ID = " + tex_addr + " ) for this TextureMaterial");
 					var texture:Texture2DBase = returnedArray[1];
 					
 					var ambientTexture:Texture2DBase;
 					var ambientTex_addr:uint = props.get(17, 0);
 					returnedArray = getAssetByID(ambientTex_addr, [AssetType.TEXTURE])
-					if ((returnedArray[0] == false) && (ambientTex_addr != 0))
+					if ((!returnedArray[0]) && (ambientTex_addr != 0))
 						_blocks[blockID].addError("Could not find the AmbientTexture (ID = " + ambientTex_addr + " ) for this TextureMaterial");
-					if (returnedArray[0] == true)
+					if (returnedArray[0])
 						ambientTexture = returnedArray[1]
 					if (spezialType == 1)
 					{ // MultiPassMaterial
@@ -1243,24 +1322,24 @@ package away3d.loaders.parsers
 				}
 				var normalTex_addr:uint = props.get(3, 0);
 				returnedArray = getAssetByID(normalTex_addr, [AssetType.TEXTURE])
-				if ((returnedArray[0] == false) && (normalTex_addr != 0))
+				if ((!returnedArray[0]) && (normalTex_addr != 0))
 					_blocks[blockID].addError("Could not find the NormalTexture (ID = " + normalTex_addr + " ) for this TextureMaterial");
-				if (returnedArray[0] == true){
+				if (returnedArray[0]){
 					normalTexture = returnedArray[1];
 					debugString+=" | NormalTexture-Name = "+normalTexture.name; 
 				}
 				
 				var specTex_addr:uint = props.get(21, 0);
 				returnedArray = getAssetByID(specTex_addr, [AssetType.TEXTURE])
-				if ((returnedArray[0] == false) && (specTex_addr != 0))
+				if ((!returnedArray[0]) && (specTex_addr != 0))
 					_blocks[blockID].addError("Could not find the SpecularTexture (ID = " + specTex_addr + " ) for this TextureMaterial");
-				if (returnedArray[0] == true){
+				if (returnedArray[0]){
 					specTexture = returnedArray[1];
 					debugString+=" | SpecularTexture-Name = "+specTexture.name; 
 				}
 				var lightPickerAddr:uint = props.get(22, 0);
 				returnedArray = getAssetByID(lightPickerAddr, [AssetType.LIGHT_PICKER])
-				if ((returnedArray[0] == false)&&(lightPickerAddr))
+				if ((!returnedArray[0])&&(lightPickerAddr))
 					_blocks[blockID].addError("Could not find the LightPicker (ID = " + lightPickerAddr + " ) for this TextureMaterial");
 				else{
 					MaterialBase(mat).lightPicker = returnedArray[1] as LightPickerBase;
@@ -1313,8 +1392,8 @@ package away3d.loaders.parsers
 					{
 						case 999: //wrapper-Methods that will load a previous parsed EffektMethod returned
 							targetID = props.get(1, 0);
-							returnedArray = getAssetByID(targetID, [AssetType.EFFECTS_METHOD])
-							if (returnedArray[0] == false)
+							returnedArray = getAssetByID(targetID, [AssetType.EFFECTS_METHOD]);
+							if (!returnedArray[0])
 								_blocks[blockID].addError("Could not find the EffectMethod (ID = " + targetID + " ) for this Material");
 							else
 							{
@@ -1327,8 +1406,8 @@ package away3d.loaders.parsers
 							break;
 						case 998: //wrapper-Methods that will load a previous parsed ShadowMapMethod 
 							targetID = props.get(1, 0);
-							returnedArray = getAssetByID(targetID, [AssetType.SHADOW_MAP_METHOD])
-							if (returnedArray[0] == false)
+							returnedArray = getAssetByID(targetID, [AssetType.SHADOW_MAP_METHOD]);
+							if (!returnedArray[0])
 								_blocks[blockID].addError("Could not find the ShadowMethod (ID = " + targetID + " ) for this Material");
 							else
 							{
@@ -1342,8 +1421,8 @@ package away3d.loaders.parsers
 						
 						case 1: //EnvMapAmbientMethod                             
 							targetID = props.get(1, 0);
-							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture")
-							if (returnedArray[0] == false)
+							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture");
+							if (!returnedArray[0])
 								_blocks[blockID].addError("Could not find the EnvMap (ID = " + targetID + " ) for this EnvMapAmbientMethodMaterial");
 							if (spezialType == 0)
 								SinglePassMaterialBase(mat).ambientMethod = new EnvMapAmbientMethod(returnedArray[1]);
@@ -1361,8 +1440,8 @@ package away3d.loaders.parsers
 							break;
 						case 52: //GradientDiffuseMethod
 							targetID = props.get(1, 0);
-							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE])
-							if (returnedArray[0] == false)
+							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE]);
+							if (!returnedArray[0])
 								_blocks[blockID].addError("Could not find the GradientDiffuseTexture (ID = " + targetID + " ) for this GradientDiffuseMethod");
 							if (spezialType == 0)
 								SinglePassMaterialBase(mat).diffuseMethod = new GradientDiffuseMethod(returnedArray[1]);
@@ -1379,8 +1458,8 @@ package away3d.loaders.parsers
 							break;
 						case 54: //LightMapDiffuseMethod
 							targetID = props.get(1, 0);
-							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE])
-							if (returnedArray[0] == false)
+							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE]);
+							if (!returnedArray[0])
 								_blocks[blockID].addError("Could not find the LightMap (ID = " + targetID + " ) for this LightMapDiffuseMethod");
 							if (spezialType == 0)
 								SinglePassMaterialBase(mat).diffuseMethod = new LightMapDiffuseMethod(returnedArray[1], blendModeDic[props.get(401, 10)], false, SinglePassMaterialBase(mat).diffuseMethod);
@@ -1465,8 +1544,8 @@ package away3d.loaders.parsers
 						//break;
 						case 152: //SimpleWaterNormalMethod
 							targetID = props.get(1, 0);
-							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE])
-							if (returnedArray[0] == false)
+							returnedArray = getAssetByID(targetID, [AssetType.TEXTURE]);
+							if (!returnedArray[0])
 								_blocks[blockID].addError("Could not find the SecoundNormalMap (ID = " + targetID + " ) for this SimpleWaterNormalMethod");
 							if (spezialType == 0)
 							{
@@ -1503,19 +1582,20 @@ package away3d.loaders.parsers
 			
 			_blocks[blockID].name = parseVarStr();
 			var type:uint = _newBlockBytes.readUnsignedByte();
-			var data_len:uint = _newBlockBytes.readUnsignedInt();
-			
+			var data_len:uint;
 			_texture_users[_cur_block_id.toString()] = [];
 			
 			// External
 			if (type == 0)
 			{
+				data_len = _newBlockBytes.readUnsignedInt();
 				var url:String;
 				url = _newBlockBytes.readUTFBytes(data_len);
 				addDependency(_cur_block_id.toString(), new URLRequest(url), false, null, true);
 			}
 			else
 			{
+				data_len = _newBlockBytes.readUnsignedInt();
 				var data:ByteArray;
 				data = new ByteArray();
 				_newBlockBytes.readBytes(data, 0, data_len);
@@ -1546,18 +1626,19 @@ package away3d.loaders.parsers
 			
 			for (i = 0; i < 6; i++)
 			{
-				data_len = _newBlockBytes.readUnsignedInt();
 				_texture_users[_cur_block_id.toString()] = [];
 				_cubeTextures.push(null);
 				// External
 				if (type == 0)
 				{
+					data_len = _newBlockBytes.readShort();
 					var url:String;
 					url = _newBlockBytes.readUTFBytes(data_len);
 					addDependency(_cur_block_id.toString() + "#" + i, new URLRequest(url), false, null, true);
 				}
 				else
 				{
+					data_len = _newBlockBytes.readUnsignedInt();
 					var data:ByteArray;
 					data = new ByteArray();
 					_newBlockBytes.readBytes(data, 0, data_len);
@@ -1613,30 +1694,30 @@ package away3d.loaders.parsers
 					break;
 				case 403: //EnvMap
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture")
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture");
+					if (!returnedArray[0])
 						_blocks[blockID].addError("Could not find the EnvMap (ID = " + targetID + " ) for this EnvMapMethod");
 					effectMethodReturn = new EnvMapMethod(returnedArray[1], props.get(101, 1));
 					targetID = props.get(2, 0);
 					if (targetID > 0)
 					{
-						returnedArray = getAssetByID(targetID, [AssetType.TEXTURE])
-						if (returnedArray[0] == false)
+						returnedArray = getAssetByID(targetID, [AssetType.TEXTURE]);
+						if (!returnedArray[0])
 							_blocks[blockID].addError("Could not find the Mask-texture (ID = " + targetID + " ) for this EnvMapMethod");
 						EnvMapMethod(effectMethodReturn).mask = returnedArray[1];
 					}
 					break;
 				case 404: //LightMapMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE])
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE]);
+					if (!returnedArray[0])
 						_blocks[blockID].addError("Could not find the LightMap (ID = " + targetID + " ) for this LightMapMethod");
 					effectMethodReturn = new LightMapMethod(returnedArray[1], blendModeDic[props.get(401, 10)]); //usesecondaryUV not set					
 					break;
 				case 405: //ProjectiveTextureMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE_PROJECTOR])
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE_PROJECTOR]);
+					if (!returnedArray[0])
 						_blocks[blockID].addError("Could not find the TextureProjector (ID = " + targetID + " ) for this ProjectiveTextureMethod");
 					effectMethodReturn = new ProjectiveTextureMethod(returnedArray[1], blendModeDic[props.get(401, 10)]);
 					break;
@@ -1645,15 +1726,15 @@ package away3d.loaders.parsers
 					break;
 				case 407: //AlphaMaskMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE])
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE]);
+					if (!returnedArray[0])
 						_blocks[blockID].addError("Could not find the Alpha-texture (ID = " + targetID + " ) for this AlphaMaskMethod");
 					effectMethodReturn = new AlphaMaskMethod(returnedArray[1], props.get(701, false));
 					break;
 				case 408: //RefractionEnvMapMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture")
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture");
+					if (!returnedArray[0])
 						_blocks[blockID].addError("Could not find the EnvMap (ID = " + targetID + " ) for this RefractionEnvMapMethod");
 					effectMethodReturn = new RefractionEnvMapMethod(returnedArray[1], props.get(101, 0.1), props.get(102, 0.01), props.get(103, 0.01), props.get(104, 0.01));
 					RefractionEnvMapMethod(effectMethodReturn).alpha = props.get(104, 1);
@@ -1663,8 +1744,8 @@ package away3d.loaders.parsers
 					break;
 				case 410: //FresnelEnvMapMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture")
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.TEXTURE], "CubeTexture");
+					if (!returnedArray[0])
 						_blocks[blockID].addError("Could not find the EnvMap (ID = " + targetID + " ) for this FresnelEnvMapMethod");
 					effectMethodReturn = new FresnelEnvMapMethod(returnedArray[1], props.get(101, 1));
 					break;
@@ -1686,8 +1767,8 @@ package away3d.loaders.parsers
 			var shadowLightID:uint;
 			_blocks[blockID].name = parseVarStr();
 			shadowLightID = _newBlockBytes.readUnsignedInt();
-			var returnedArray:Array = getAssetByID(shadowLightID, [AssetType.LIGHT])
-			if (returnedArray[0] == false)
+			var returnedArray:Array = getAssetByID(shadowLightID, [AssetType.LIGHT]);
+			if (!returnedArray[0])
 			{
 				_blocks[blockID].addError("Could not find the TargetLight (ID = " + shadowLightID + " ) for this ShadowMethod - ShadowMethod not created");
 				return;
@@ -1718,8 +1799,8 @@ package away3d.loaders.parsers
 			{
 				case 1001: //CascadeShadowMapMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.SHADOW_MAP_METHOD])
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.SHADOW_MAP_METHOD]);
+					if (!returnedArray[0])
 					{
 						_blocks[blockID].addError("Could not find the ShadowBaseMethod (ID = " + targetID + " ) for this CascadeShadowMapMethod - ShadowMethod not created");
 						return shadowMethod;
@@ -1728,8 +1809,8 @@ package away3d.loaders.parsers
 					break;
 				case 1002: //NearShadowMapMethod
 					targetID = props.get(1, 0);
-					returnedArray = getAssetByID(targetID, [AssetType.SHADOW_MAP_METHOD])
-					if (returnedArray[0] == false)
+					returnedArray = getAssetByID(targetID, [AssetType.SHADOW_MAP_METHOD]);
+					if (!returnedArray[0])
 					{
 						_blocks[blockID].addError("Could not find the ShadowBaseMethod (ID = " + targetID + " ) for this NearShadowMapMethod - ShadowMethod not created");
 						return shadowMethod;
@@ -1852,15 +1933,11 @@ package away3d.loaders.parsers
 			{
 				pose_addr = _newBlockBytes.readUnsignedInt();
 				frame_dur = _newBlockBytes.readUnsignedShort();
-				returnedArray = getAssetByID(pose_addr, [AssetType.SKELETON_POSE])
-				if (returnedArray[0] == false)
-				{
+				returnedArray = getAssetByID(pose_addr, [AssetType.SKELETON_POSE]);
+				if (!returnedArray[0])
 					_blocks[blockID].addError("Could not find the SkeletonPose Frame # " + frames_parsed + " (ID = " + pose_addr + " ) for this SkeletonClipNode");
-				}
 				else
-				{
 					clip.addFrame(_blocks[pose_addr].data as SkeletonPose, frame_dur);
-				}
 				frames_parsed++;
 			}
 			if (clip.frames.length == 0)
@@ -1902,14 +1979,14 @@ package away3d.loaders.parsers
 			var thisGeo:Geometry;
 			var name:String = parseVarStr();
 			var geoAdress:int = _newBlockBytes.readUnsignedInt();
-			var returnedArray:Array = getAssetByID(geoAdress, [AssetType.GEOMETRY])
-			if (returnedArray[0] == false)
+			var returnedArray:Array = getAssetByID(geoAdress, [AssetType.GEOMETRY]);
+			if (!returnedArray[0])
 			{
 				_blocks[blockID].addError("Could not find the target-Geometry-Object " + geoAdress + " ) for this VertexClipNode");
 				return;
 			}
 			var uvs:Vector.<Vector.<Number>> = getUVForVertexAnimation(geoAdress);
-			if (poseOnly == false)
+			if (!poseOnly)
 				num_frames = _newBlockBytes.readUnsignedShort();
 			
 			num_submeshes = _newBlockBytes.readUnsignedShort();
@@ -1996,8 +2073,8 @@ package away3d.loaders.parsers
 			while (frames_parsed < num_frames)
 			{
 				poseBlockAdress = _newBlockBytes.readUnsignedInt();
-				var returnedArray:Array = getAssetByID(poseBlockAdress, [AssetType.ANIMATION_NODE])
-				if (returnedArray[0] == false)
+				var returnedArray:Array = getAssetByID(poseBlockAdress, [AssetType.ANIMATION_NODE]);
+				if (!returnedArray[0])
 				{
 					_blocks[blockID].addError("Could not find the AnimationClipNode Nr " + frames_parsed + " ( " + poseBlockAdress + " ) for this AnimationSet");
 				}
@@ -2027,7 +2104,7 @@ package away3d.loaders.parsers
 											
 			}
 			else if (skeletonFrames.length>0){
-				returnedArray = getAssetByID(poseBlockAdress, [AssetType.ANIMATION_NODE])
+				returnedArray = getAssetByID(poseBlockAdress, [AssetType.ANIMATION_NODE]);
 				var newSkeletonAnimationSet:SkeletonAnimationSet = new SkeletonAnimationSet(props.get(1,4));//props.get(1,4));
 				for each (var skeletFrame:SkeletonClipNode in skeletonFrames)
 					newSkeletonAnimationSet.addAnimation(skeletFrame);	
@@ -2086,10 +2163,8 @@ package away3d.loaders.parsers
 			animSetBlockAdress = _newBlockBytes.readUnsignedInt();	
 			var targetMeshLength:uint=_newBlockBytes.readUnsignedShort();
 			var meshAdresses:Vector.<uint> = new Vector.<uint>;
-			for(var i:int=0;i<targetMeshLength;i++){
+			for(var i:int=0;i<targetMeshLength;i++)
 				meshAdresses.push(_newBlockBytes.readUnsignedInt());
-			}
-				
 			
 			var activeState:uint = _newBlockBytes.readUnsignedShort();
 			var autoplay:Boolean = Boolean(_newBlockBytes.readUnsignedByte());
@@ -2100,12 +2175,12 @@ package away3d.loaders.parsers
 			var targetMeshes:Vector.<Mesh> = new Vector.<Mesh>;
 			
 			for(i=0;i<meshAdresses.length;i++){
-				returnedArray = getAssetByID(meshAdresses[i], [AssetType.MESH])
-				if (returnedArray[0] == true)
+				returnedArray = getAssetByID(meshAdresses[i], [AssetType.MESH]);
+				if (returnedArray[0])
 					targetMeshes.push(returnedArray[1] as Mesh);
 			}
-			returnedArray = getAssetByID(animSetBlockAdress, [AssetType.ANIMATION_SET])
-			if (returnedArray[0] == false)
+			returnedArray = getAssetByID(animSetBlockAdress, [AssetType.ANIMATION_SET]);
+			if (!returnedArray[0])
 			{
 				_blocks[blockID].addError("Could not find the AnimationSet ( " + animSetBlockAdress + " ) for this Animator");;
 				return
@@ -2115,8 +2190,8 @@ package away3d.loaders.parsers
 			if(type==1)
 			{
 				
-				returnedArray = getAssetByID(props.get(1,0), [AssetType.SKELETON])
-				if (returnedArray[0] == false)
+				returnedArray = getAssetByID(props.get(1,0), [AssetType.SKELETON]);
+				if (!returnedArray[0])
 				{
 					_blocks[blockID].addError("Could not find the Skeleton ( " + props.get(1,0) + " ) for this Animator");
 					return
@@ -2136,15 +2211,53 @@ package away3d.loaders.parsers
 				if(type==2)
 					targetMeshes[i].animator=VertexAnimator(thisAnimator);
 				
-			}
-			
+			}			
 			if (_debug)
-				trace("Parsed a Animator: Name = "+name);
-			
-			
-			
+				trace("Parsed a Animator: Name = "+name);			
 		}
 		
+		//Block ID = 253
+		private function parseCommand(blockID:uint):void
+		{
+			var hasBlocks:Boolean=Boolean(_newBlockBytes.readUnsignedByte());
+			var par_id:uint = _newBlockBytes.readUnsignedInt();
+			var mtx:Matrix3D = parseMatrix3D();
+			var name:String = parseVarStr();
+			
+			var parentObject:ObjectContainer3D;
+			var targetObject:ObjectContainer3D;
+			var returnedArray:Array = getAssetByID(par_id, [AssetType.CONTAINER, AssetType.LIGHT, AssetType.MESH, AssetType.ENTITY, AssetType.SEGMENT_SET]);
+			if (returnedArray[0])
+				parentObject=ObjectContainer3D(returnedArray[1]);
+			
+			var numCommands:uint=_newBlockBytes.readShort();
+			var typeCommand:uint=_newBlockBytes.readShort();
+			var props:AWDProperties=parseProperties({1: BADDR});
+			switch(typeCommand){
+				case 1:
+					var targetID:uint = props.get(1,0);
+					var returnedArrayTarget:Array = getAssetByID(targetID, [AssetType.LIGHT]);//for no only light is requested!!!!
+					if ((!returnedArrayTarget[0]) && (targetID != 0))
+					{
+						_blocks[blockID].addError("Could not find the light (ID = " + targetID + " ( for this CommandBock!");
+						return;
+					}
+					targetObject=returnedArrayTarget[1];
+					if (parentObject)			
+						parentObject.addChild(targetObject);
+					targetObject.transform=mtx;
+					break;
+			}
+			if(targetObject){
+				props = parseProperties({1: _matrixNrType, 2: _matrixNrType, 3: _matrixNrType, 4: UINT8});
+				targetObject.pivotPoint = new Vector3D(props.get(1, 0), props.get(2, 0), props.get(3, 0));
+				targetObject.extra = parseUserAttributes();
+			}
+			_blocks[blockID].data = targetObject
+			if (_debug)
+				trace("Parsed a CommandBlock: Name = '"+name);
+			
+		}
 		
 		
 		//blockID 254
@@ -2370,6 +2483,7 @@ package away3d.loaders.parsers
 				}
 				var defaultBitmap:BitmapData = _defaultTexture.bitmapData;
 				_defaultCubeTexture = new BitmapCubeTexture(defaultBitmap, defaultBitmap, defaultBitmap, defaultBitmap, defaultBitmap, defaultBitmap);
+				_defaultCubeTexture.name="defaultTexture";
 			}
 			return _defaultCubeTexture;
 		}

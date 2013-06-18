@@ -673,7 +673,19 @@ package away3d.containers
 		 */
 		override public function dispose() : void
 		{
-			if (parent) parent.removeChild(this);
+			if (parent) 
+				parent.removeChild(this);
+		}
+
+		/**
+		 * Disposes the current ObjectContainer3D including all of its children. This is a merely a convenience method.
+		 */
+		public function disposeWithChildren() : void
+		{
+			dispose();
+
+			while (numChildren > 0)
+				getChildAt(0).dispose();
 		}
 
 		/**

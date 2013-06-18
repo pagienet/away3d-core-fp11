@@ -1,13 +1,11 @@
 package away3d.tools.utils
 {
-	import away3d.containers.ObjectContainer3D;
-	import away3d.core.base.Geometry;
-	import away3d.core.base.ISubGeometry;
-	import away3d.core.base.SubGeometry;
-	import away3d.core.base.data.UV;
-	import away3d.entities.Mesh;
-
-	import flash.geom.Vector3D;
+	import away3d.containers.*;
+	import away3d.core.base.*;
+	import away3d.core.base.data.*;
+	import away3d.entities.*;
+	
+	import flash.geom.*;
 
 	public class Projector
 	{
@@ -91,18 +89,16 @@ package away3d.tools.utils
 				_offsetW = (minX>0)? -minX : Math.abs(minX);
 				_offsetH= (minY>0)? -minY : Math.abs(minY);
 				_offsetD= (minZ>0)? -minZ : Math.abs(minZ);
-			}
 
-			if(_orientation == LEFT || _orientation == RIGHT || _orientation == CYLINDRICAL_Z){
+			} else if(_orientation == LEFT || _orientation == RIGHT || _orientation == CYLINDRICAL_Z){
 				_width = maxZ - minZ;
 				_height = maxY - minY;
 				_depth = maxX - minX;
 				_offsetW = (minZ>0)? -minZ : Math.abs(minZ);
 				_offsetH= (minY>0)? -minY : Math.abs(minY);
 				_offsetD= (minX>0)? -minX : Math.abs(minX);
-			}
 
-			if(_orientation == TOP || _orientation == BOTTOM || _orientation == CYLINDRICAL_Y){
+			} else if(_orientation == TOP || _orientation == BOTTOM || _orientation == CYLINDRICAL_Y){
 				_width = maxX - minX;
 				_height = maxZ - minZ;
 				_depth = maxY - minY;
@@ -123,8 +119,10 @@ package away3d.tools.utils
 				_center.x = _center.y = _center.z = .0001;
 
 				remapSpherical(geometries, mesh.scenePosition);
+
 			} else if(_orientation.indexOf("cylindrical") != -1){
 				remapCylindrical(geometries, mesh.scenePosition);
+
 			} else {
 				remapLinear(geometries, mesh.scenePosition);
 			}
@@ -133,222 +131,239 @@ package away3d.tools.utils
 		private static function remapLinear(geometries:Vector.<ISubGeometry>, position:Vector3D):void
 		{
 			var numSubGeoms:uint = geometries.length;
-			var sub_geom:SubGeometry;
-
+			var sub_geom:ISubGeometry;
 			var vertices:Vector.<Number>;
+			var vertexOffset:int;
+			var vertexStride:int;
 			var indices:Vector.<uint>;
 			var uvs:Vector.<Number>;
-
+			var uvOffset:int;
+			var uvStride:int;
 			var i:uint;
 			var j:uint;
-			var xindex:uint;
-			var uindex:uint;
-			var indLoop:uint;
-
+			var vIndex:uint;
+			var uvIndex:uint;
+			var numIndices:uint;
 			var offsetU:Number;
 			var offsetV:Number;
 
 			 for (i = 0; i<numSubGeoms; ++i){
-				sub_geom = SubGeometry(geometries[i]);
-				vertices = sub_geom.vertexData;
-				indices = sub_geom.indexData;
+				sub_geom = geometries[i];
+				
+				vertices = sub_geom.vertexData
+				vertexOffset = sub_geom.vertexOffset;
+				vertexStride = sub_geom.vertexStride;
+				
 				uvs = sub_geom.UVData;
-				indLoop = indices.length;
+				uvOffset = sub_geom.UVOffset;
+				uvStride = sub_geom.UVStride;
+				
+				indices = sub_geom.indexData;
+				
+				numIndices = indices.length;
 
 				switch(_orientation){
 					case FRONT:
-						offsetU = _offsetW+position.x;
-						offsetV = _offsetH+position.y;
-						for (j = 0; j<indLoop; ++j){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex] = (vertices[xindex]+offsetU)/_width;
-							uvs[uindex+1] = 1- (vertices[xindex+1]+offsetV)/_height;
+						offsetU = _offsetW + position.x;
+						offsetV = _offsetH + position.y;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = (vertices[vIndex] + offsetU)/_width;
+							uvs[uvIndex+1] = 1 - (vertices[vIndex+1] + offsetV)/_height;
 						}
 						break;
 
 					case BACK:
 						offsetU = _offsetW+position.x;
 						offsetV = _offsetH+position.y;
-						for (j = 0; j<indLoop; ++j){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex] = 1-(vertices[xindex]+offsetU)/_width;
-							uvs[uindex+1] = 1- (vertices[xindex+1]+offsetV)/_height;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = 1-(vertices[vIndex]+offsetU)/_width;
+							uvs[uvIndex+1] = 1- (vertices[vIndex+1]+offsetV)/_height;
 						}
 						break;
 
 					case RIGHT:
 						offsetU = _offsetW+position.z;
 						offsetV = _offsetH+position.y;
-						for (j = 0; j<indLoop; ++j){
-							xindex = indices[j]*3 + 1;
-							uindex = indices[j]<<1;
-							uvs[uindex] = (vertices[xindex+1]+offsetU)/_width;
-							uvs[uindex+1] = 1- (vertices[xindex]+offsetV)/_height;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j] + 1;
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = (vertices[vIndex+1]+offsetU)/_width;
+							uvs[uvIndex+1] = 1- (vertices[vIndex]+offsetV)/_height;
 						}
 						break;
 
 					case LEFT:
 						offsetU = _offsetW+position.z;
 						offsetV = _offsetH+position.y;
-						for (j = 0; j<indLoop; ++j){
-							xindex = indices[j]*3 + 1;
-							uindex = indices[j]<<1;
-							uvs[uindex] = 1-(vertices[xindex+1]+offsetU)/_width;
-							uvs[uindex+1] = 1- (vertices[xindex]+offsetV)/_height;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j] + 1;
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = 1-(vertices[vIndex+1]+offsetU)/_width;
+							uvs[uvIndex+1] = 1- (vertices[vIndex]+offsetV)/_height;
 						}
 						break;
 
 					case TOP:
 						offsetU = _offsetW+position.x;
 						offsetV = _offsetH+position.z;
-						for (j = 0; j<indLoop; ++j){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex] = (vertices[xindex]+offsetU)/_width;
-							uvs[uindex+1] = 1- (vertices[xindex+2]+offsetV)/_height;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = (vertices[vIndex]+offsetU)/_width;
+							uvs[uvIndex+1] = 1- (vertices[vIndex+2]+offsetV)/_height;
 						}
 						break;
 
 					case BOTTOM:
 						offsetU = _offsetW+position.x;
 						offsetV = _offsetH+position.z;
-						for (j = 0; j<indLoop; ++j){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex] = 1-(vertices[xindex]+offsetU)/_width;
-							uvs[uindex+1] = 1- (vertices[xindex+2]+offsetV)/_height;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = 1-(vertices[vIndex]+offsetU)/_width;
+							uvs[uvIndex+1] = 1- (vertices[vIndex+2]+offsetV)/_height;
 						}
 				}
 
-				sub_geom.updateUVData(uvs);
+				if(sub_geom is CompactSubGeometry){
+					CompactSubGeometry(sub_geom).updateData(uvs);
+				} else {
+					SubGeometry(sub_geom).updateUVData(uvs);
+				}
 			}
 		}
 
 		private static function remapCylindrical(geometries:Vector.<ISubGeometry>, position:Vector3D):void
 		{
 			var numSubGeoms:uint = geometries.length;
-			var sub_geom:SubGeometry;
-
+			var sub_geom:ISubGeometry;
 			var vertices:Vector.<Number>;
+			var vertexOffset:int;
+			var vertexStride:int;
 			var indices:Vector.<uint>;
 			var uvs:Vector.<Number>;
-
+			var uvOffset:int;
+			var uvStride:int;
 			var i:uint;
 			var j:uint;
-			var xindex:uint;
-			var uindex:uint;
-			var indLoop:uint;
-
+			var vIndex:uint;
+			var uvIndex:uint;
+			var numIndices:uint;
 			var offset:Number;
 
 			 for (i = 0; i<numSubGeoms; ++i){
-				sub_geom = SubGeometry(geometries[i]);
-				vertices = sub_geom.vertexData;
-				indices = sub_geom.indexData;
+				sub_geom = geometries[i];
+				 
+				vertices = sub_geom.vertexData
+				vertexOffset = sub_geom.vertexOffset;
+				vertexStride = sub_geom.vertexStride;
+				
 				uvs = sub_geom.UVData;
-				indLoop = indices.length;
+				uvOffset = sub_geom.UVOffset;
+				uvStride = sub_geom.UVStride;
+				
+				indices = sub_geom.indexData;
+
+				numIndices = indices.length;
 
 				switch(_orientation){
 
 					case CYLINDRICAL_X:
 
 						offset = _offsetW+position.x;
-						for (j = 0; j<indLoop; j+=3){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex] = (vertices[xindex]+offset)/_width;
-							uvs[uindex+1] = (PI + Math.atan2( vertices[xindex+1], vertices[xindex+2]))/DOUBLEPI;
-
-							xindex = indices[j+1]*3;
-							uindex = indices[j+1]<<1;
-							uvs[uindex] = (vertices[xindex]+offset)/_width;
-							uvs[uindex+1] = (PI + Math.atan2( vertices[xindex+1], vertices[xindex+2]))/DOUBLEPI;
-
-							xindex = indices[j+2]*3;
-							uindex = indices[j+2]<<1;
-							uvs[uindex] = (vertices[xindex]+offset)/_width;
-							uvs[uindex+1] = (PI + Math.atan2( vertices[xindex+1], vertices[xindex+2]))/DOUBLEPI;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = (vertices[vIndex]+offset)/_width;
+							uvs[uvIndex+1] = (PI + Math.atan2( vertices[vIndex+1], vertices[vIndex+2]))/DOUBLEPI;
 						}
 						break;
 
 					case CYLINDRICAL_Y:
 						offset = _offsetD+position.y;
-						for (j = 0; j<indLoop; j+=3){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex] = (PI + Math.atan2(vertices[xindex], vertices[xindex+2]))/DOUBLEPI;
-							uvs[uindex+1]  = 1- (vertices[xindex+1]+offset)/_depth;
-
-							xindex = indices[j+1]*3;
-							uindex = indices[j+1]<<1;
-							uvs[uindex] =  (PI + Math.atan2(vertices[xindex], vertices[xindex+2]))/DOUBLEPI;
-							uvs[uindex+1]  = 1- (vertices[xindex+1]+offset)/_depth;
-
-							xindex = indices[j+2]*3;
-							uindex = indices[j+2]<<1;
-							uvs[uindex] = (PI + Math.atan2(vertices[xindex], vertices[xindex+2]))/DOUBLEPI;
-							uvs[uindex+1]  = 1- (vertices[xindex+1]+offset)/_depth;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex] = (PI + Math.atan2(vertices[vIndex], vertices[vIndex+2]))/DOUBLEPI;
+							uvs[uvIndex+1]  = 1- (vertices[vIndex+1]+offset)/_depth;
 						}
 						break;
 
 					case CYLINDRICAL_Z:
 						offset = _offsetW+position.z;
-						for (j = 0; j<indLoop; j+=3){
-							xindex = indices[j]*3;
-							uindex = indices[j]<<1;
-							uvs[uindex+1]  = (vertices[xindex+2]+offset)/_width;
-							uvs[uindex] = (PI + Math.atan2(vertices[xindex+1], vertices[xindex]))/DOUBLEPI;
-							xindex = indices[j+1]*3;
-							uindex = indices[j+1]<<1;
-							uvs[uindex+1]  = (vertices[xindex+2]+offset)/_width;
-							uvs[uindex] = (PI + Math.atan2(vertices[xindex+1], vertices[xindex]))/DOUBLEPI;
-							xindex = indices[j+2]*3;
-							uindex = indices[j+2]<<1;
-							uvs[uindex+1]  = (vertices[xindex+2]+offset)/_width;
-							uvs[uindex] = (PI + Math.atan2(vertices[xindex+1], vertices[xindex]))/DOUBLEPI;
+						for (j = 0; j<numIndices; ++j){
+							vIndex = vertexOffset + vertexStride*indices[j];
+							uvIndex = uvOffset + uvStride*indices[j];
+							uvs[uvIndex+1]  = (vertices[vIndex+2]+offset)/_width;
+							uvs[uvIndex] = (PI + Math.atan2(vertices[vIndex+1], vertices[vIndex]))/DOUBLEPI;
 						}
 
 				}
 
-				sub_geom.updateUVData(uvs);
+				if(sub_geom is CompactSubGeometry){
+					CompactSubGeometry(sub_geom).updateData(uvs);
+				} else {
+					SubGeometry(sub_geom).updateUVData(uvs);
+				}
 
 			}
 		}
 
 		private static function remapSpherical(geometries:Vector.<ISubGeometry>, position:Vector3D):void
 		{
-			position=position;
+			position = position;
 			var numSubGeoms:uint = geometries.length;
-			var sub_geom:SubGeometry;
+			var sub_geom:ISubGeometry;
 
 			var vertices:Vector.<Number>;
+			var vertexOffset:int;
+			var vertexStride:int;
 			var indices:Vector.<uint>;
 			var uvs:Vector.<Number>;
-
+			var uvOffset:int;
+			var uvStride:int;
+			
 			var i:uint;
 			var j:uint;
-			var xindex:uint;
-			var uindex:uint;
-			var indLoop:uint;
+			var vIndex:uint;
+			var uvIndex:uint;
+			var numIndices:uint;
 
 			 for (i = 0; i<numSubGeoms; ++i){
-				sub_geom = SubGeometry(geometries[i]);
-				vertices = sub_geom.vertexData;
-				indices = sub_geom.indexData;
+				sub_geom = geometries[i];
+
+				vertices = sub_geom.vertexData
+				vertexOffset = sub_geom.vertexOffset;
+				vertexStride = sub_geom.vertexStride;
+				
 				uvs = sub_geom.UVData;
-				indLoop = indices.length;
+				uvOffset = sub_geom.UVOffset;
+				uvStride = sub_geom.UVStride;
+				
+				indices = sub_geom.indexData;
+				
+				numIndices = indices.length;
 
-				 for (j = 0; j<indLoop; ++j){
-					xindex = indices[j]*3;
-					uindex = indices[j]<<1;
+				numIndices = indices.length;
 
-					projectVertex(vertices[xindex], vertices[xindex+1], vertices[xindex+2]);
-					uvs[uindex] = _uv.u;
-					uvs[uindex+1] = _uv.v;
+				 for (j = 0; j<numIndices; ++j){
+					vIndex = vertexOffset + vertexStride*indices[j];
+					uvIndex = uvOffset + uvStride*indices[j];
+
+					projectVertex(vertices[vIndex], vertices[vIndex+1], vertices[vIndex+2]);
+					uvs[uvIndex] = _uv.u;
+					uvs[uvIndex+1] = _uv.v;
 				}
-				sub_geom.updateUVData(uvs);
+
+				if(sub_geom is CompactSubGeometry){
+					CompactSubGeometry(sub_geom).updateData(uvs);
+				} else {
+					SubGeometry(sub_geom).updateUVData(uvs);
+				}
 			}
 		}
 

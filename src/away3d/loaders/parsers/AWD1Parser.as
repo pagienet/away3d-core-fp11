@@ -7,6 +7,7 @@ package away3d.loaders.parsers {
 	import away3d.loaders.misc.ResourceDependency;
 	import away3d.loaders.parsers.utils.ParserUtil;
 	import away3d.materials.TextureMaterial;
+    import away3d.materials.TextureMultiPassMaterial;
 	import away3d.materials.utils.DefaultMaterialManager;
 	import away3d.textures.Texture2DBase;
 
@@ -72,18 +73,20 @@ package away3d.loaders.parsers {
 		 */
 		public static function supportsData(data : *) : Boolean {
 			var ba : ByteArray;
-			var str : String;
+			var str1 : String;
+			var str2 : String;
 			
 			ba = ParserUtil.toByteArray(data);
 			if (ba) {
 				ba.position = 0;
-				str = ba.readUTFBytes(5);
+				str1 = ba.readUTFBytes(2);
+				str2 = ba.readUTFBytes(100);
 			}
 			else {
-				str = (data is String)? String(data).substr(0, 5) : null;
+				str1 = (data is String)? String(data).substr(0, 5) : null;
+				str2 = (data is String)? String(data).substr(0, 100) : null;
 			}
-			
-			if (str == '//AWD')
+			if ((str1 == '//')&&(str2.indexOf("#v:")!=-1))
 				return true;
 			
 			return false;
@@ -100,8 +103,13 @@ package away3d.loaders.parsers {
 			var asset : Texture2DBase = resourceDependency.assets[0] as Texture2DBase;
 			var m:Mesh = retrieveMeshFromID(resourceDependency.id);
 			
-			if(m && asset)
-				TextureMaterial(m.material).texture = asset;
+			if (m && asset) {
+                if(materialMode<2)
+				    TextureMaterial(m.material).texture = asset;
+                else
+				    TextureMultiPassMaterial(m.material).texture = asset;
+                    
+            }
 		}
 		
 		/**
@@ -268,7 +276,10 @@ package away3d.loaders.parsers {
 							_aC[ref.container].addChild(mesh);
 						
 						mesh.transform = ref.transform;
-						mesh.material = new TextureMaterial( DefaultMaterialManager.getDefaultTexture());
+                        if (materialMode<2)
+						    mesh.material = new TextureMaterial( DefaultMaterialManager.getDefaultTexture());
+                        else
+						    mesh.material = new TextureMultiPassMaterial( DefaultMaterialManager.getDefaultTexture());
 						
 						mesh.material.bothSides = Boolean(ref.bothSides);
 						 

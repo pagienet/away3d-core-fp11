@@ -142,6 +142,7 @@ package away3d.loaders.misc
 		private var _fileExtension : String;
 		private var _fileName : String;
 		private var _loadAsRawData : Boolean;
+		private var _materialMode : uint;
 		private var _data : *;
 		
 		// Image parser only parser that is added by default, to save file size.
@@ -151,8 +152,10 @@ package away3d.loaders.misc
 		/**
 		 * Creates a new SingleFileLoader object.
 		 */
-		public function SingleFileLoader()
+		public function SingleFileLoader(materialMode:uint=0)
 		{
+			
+			_materialMode=materialMode;
 		}
 		
 		
@@ -369,11 +372,13 @@ package away3d.loaders.misc
 		{
 			// If no parser has been defined, try to find one by letting
 			// all plugged in parsers inspect the actual data.
-			if (!_parser)
+			if (!_parser){
 				_parser = getParserFromData(data);
+			}
 			
 			if(_parser){
 				_parser.addEventListener(ParserEvent.READY_FOR_DEPENDENCIES, onReadyForDependencies);
+				_parser.addEventListener(ParserEvent.PARSE_ERROR, onParseError);
 				_parser.addEventListener(ParserEvent.PARSE_COMPLETE, onParseComplete);
 				_parser.addEventListener(AssetEvent.TEXTURE_SIZE_ERROR, onTextureSizeError);
 				_parser.addEventListener(AssetEvent.ASSET_COMPLETE, onAssetComplete);
@@ -392,7 +397,7 @@ package away3d.loaders.misc
 				
 				if (_req && _req.url)
 					_parser._fileName = _req.url;
-				
+				_parser.materialMode=_materialMode;
 				_parser.parseAsync(data);
 			} else{
 				var msg:String = "No parser defined. To enable all parsers for auto-detection, use Parsers.enableAllBundled()";
@@ -404,6 +409,11 @@ package away3d.loaders.misc
 			}
 		}
 		
+		private function onParseError(event : ParserEvent) : void
+		{
+			if(hasEventListener(ParserEvent.PARSE_ERROR))
+				dispatchEvent(event.clone());
+		}
 		
 		private function onReadyForDependencies(event : ParserEvent) : void
 		{
@@ -429,6 +439,7 @@ package away3d.loaders.misc
 			
 			_parser.removeEventListener(ParserEvent.READY_FOR_DEPENDENCIES, onReadyForDependencies);
 			_parser.removeEventListener(ParserEvent.PARSE_COMPLETE, onParseComplete);
+			_parser.removeEventListener(ParserEvent.PARSE_ERROR, onParseError);
 			_parser.removeEventListener(AssetEvent.TEXTURE_SIZE_ERROR, onTextureSizeError);
 			_parser.removeEventListener(AssetEvent.ASSET_COMPLETE, onAssetComplete);
 			_parser.removeEventListener(AssetEvent.ANIMATION_SET_COMPLETE, onAssetComplete);

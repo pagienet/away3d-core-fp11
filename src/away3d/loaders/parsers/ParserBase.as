@@ -173,6 +173,7 @@ package away3d.loaders.parsers {
 		private var _parsingComplete : Boolean;
 		private var _parsingFailure:Boolean;
 		private var _timer : Timer;
+		private var _materialMode:uint;
 		
 		/**
 		 * Returned by <code>proceedParsing</code> to indicate no more parsing is needed.
@@ -193,6 +194,7 @@ package away3d.loaders.parsers {
 		 */
 		public function ParserBase(format : String)
 		{
+			_materialMode=0;
 			_dataFormat = format;
 			_dependencies = new Vector.<ResourceDependency>();
 		}
@@ -229,6 +231,15 @@ package away3d.loaders.parsers {
 			return _parsingComplete;
 		}
 		
+		public function set materialMode(newMaterialMode:uint) : void
+		{
+			_materialMode=newMaterialMode;
+		}
+		
+		public function get materialMode() : uint
+		{
+			return _materialMode;
+		}
 		
 		/**
 		 * The data format of the file data to be parsed. Can be either <code>ParserDataFormat.BINARY</code> or <code>ParserDataFormat.PLAIN_TEXT</code>.
@@ -379,6 +390,10 @@ package away3d.loaders.parsers {
 					type_name = 'skybox';
 					type_event = AssetEvent.SKYBOX_COMPLETE;
 					break;
+				case AssetType.CAMERA:
+					type_name = 'camera';
+					type_event = AssetEvent.CAMERA_COMPLETE;
+					break;
 				case AssetType.SEGMENT_SET:
 					type_name = 'segmentSet';
 					type_event = AssetEvent.SEGMENT_SET_COMPLETE;
@@ -418,9 +433,11 @@ package away3d.loaders.parsers {
 		
 		protected function dieWithError(message : String = 'Unknown parsing error') : void
 		{
-			_timer.removeEventListener(TimerEvent.TIMER, onInterval);
-			_timer.stop();
-			_timer = null;
+            if(_timer){
+			    _timer.removeEventListener(TimerEvent.TIMER, onInterval);
+			    _timer.stop();
+			    _timer = null;
+                }
 			dispatchEvent(new ParserEvent(ParserEvent.PARSE_ERROR, message));
 		}
 		
@@ -433,7 +450,8 @@ package away3d.loaders.parsers {
 		
 		protected function pauseAndRetrieveDependencies() : void
 		{
-			_timer.stop();
+            if(_timer)
+			    _timer.stop();
 			_parsingPaused = true;
 			dispatchEvent(new ParserEvent(ParserEvent.READY_FOR_DEPENDENCIES));
 		}
@@ -476,8 +494,9 @@ package away3d.loaders.parsers {
 		 */
 		protected function finishParsing() : void
 		{
-			_timer.removeEventListener(TimerEvent.TIMER, onInterval);
-			_timer.stop();
+            if(_timer){
+			    _timer.removeEventListener(TimerEvent.TIMER, onInterval);
+			    _timer.stop();}
 			_timer = null;
 			_parsingComplete = true;
 			dispatchEvent(new ParserEvent(ParserEvent.PARSE_COMPLETE));
