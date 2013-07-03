@@ -23,7 +23,7 @@ package away3d.materials.methods {
 		private var _specular : Number = 1;
 		private var _specularColor : uint = 0xffffff;
 		arcane var _specularR : Number = 1, _specularG : Number = 1, _specularB : Number = 1;
-		private var _shadowRegister : ShaderRegisterElement;
+		protected var _shadowRegister : ShaderRegisterElement;
 		protected var _isFirstLight : Boolean;
 
 		
