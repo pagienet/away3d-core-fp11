@@ -268,7 +268,7 @@ package away3d.materials.methods
 			if (_useTexture) {
 				_diffuseInputRegister = regCache.getFreeTextureReg();
 				vo.texturesIndex = _diffuseInputRegister.index;
-				code += getTex2DSampleCode(vo, albedo, _diffuseInputRegister, _texture);
+				code += sampleTexture(vo, albedo);
 				if (_alphaThreshold > 0) {
 					cutOffReg = regCache.getFreeFragmentConstant();
 					vo.fragmentConstantsIndex = cutOffReg.index * 4;
@@ -310,6 +310,11 @@ package away3d.materials.methods
 			regCache.removeFragmentTempUsage(albedo);
 
 			return code;
+		}
+
+		protected function sampleTexture(vo : MethodVO, albedo : ShaderRegisterElement) : String
+		{
+			return getTex2DSampleCode(vo, albedo, _diffuseInputRegister, _texture);
 		}
 
 		protected function applyShadow(vo : MethodVO, regCache : ShaderRegisterCache) : String
