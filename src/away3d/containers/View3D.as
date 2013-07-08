@@ -230,7 +230,7 @@
 		 * Forces mouse-move related events even when the mouse hasn't moved. This allows mouseOver and mouseOut events
 		 * etc to be triggered due to changes in the scene graph. Defaults to false.
 		 */
-		/*
+		
 		public function get forceMouseMove() : Boolean
 		{
 			return _mouse3DManager.forceMouseMove;
@@ -241,7 +241,7 @@
 			_mouse3DManager.forceMouseMove = value;
 //			_touch3DManager.forceTouchMove = value;
 		}
-		*/
+		
 		
 		public function get background() : Texture2DBase
 		{
@@ -943,7 +943,7 @@
 			if (_height == 0) height = stage.stageHeight;
 			else _rttBufferManager.viewHeight = _height;
 			
-			//if (_shareContext) _mouse3DManager.addViewLayer(this);
+			if (_shareContext) _mouse3DManager.addViewLayer(this);
 		}
 
 		private function onAdded(event : Event) : void
