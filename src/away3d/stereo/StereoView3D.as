@@ -68,7 +68,7 @@ package away3d.stereo
 		
 		
 		
-		override public function render():void
+		override public function render(target : Texture = null):void
 		{
 			if (_stereoEnabled) {
 				// reset or update render settings

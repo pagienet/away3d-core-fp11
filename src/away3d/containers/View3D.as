@@ -635,7 +635,7 @@
 		/**
 		 * Renders the view.
 		 */
-		public function render() : void
+		public function render(target : Texture = null) : void
 		{
 			//if context3D has Disposed by the OS,don't render at this frame
 			if (!stage3DProxy.recoverFromDisposal()) {
