@@ -254,6 +254,16 @@
 			_renderer.background = _background;
 		}
 
+		public function get backgroundRect() : Rectangle
+		{
+			return _renderer.backgroundImageRenderer.sourceRect;
+		}
+
+		public function set backgroundRect(value : Rectangle) : void
+		{
+			_renderer.backgroundImageRenderer.sourceRect = value
+		}
+
 		/**
 		 * Used in a sharedContext. When true, clears the depth buffer prior to rendering this particular
 		 * view to avoid depth sorting with lower layers. When false, the depth buffer is not cleared

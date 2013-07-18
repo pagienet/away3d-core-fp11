@@ -13,6 +13,8 @@ package away3d.core.render
 	import flash.display3D.IndexBuffer3D;
 	import flash.display3D.Program3D;
 	import flash.display3D.VertexBuffer3D;
+	import flash.geom.Point;
+	import flash.geom.Rectangle;
 
 	public class BackgroundImageRenderer
 	{
@@ -22,10 +24,23 @@ package away3d.core.render
 		private var _vertexBuffer : VertexBuffer3D;
 		private var _stage3DProxy : Stage3DProxy;
 		private var _context : Context3D;
+		private var _sourceRect : Rectangle;
+		private var _vertexBufferInvalid : Boolean;
 
 		public function BackgroundImageRenderer(stage3DProxy : Stage3DProxy)
 		{
 			this.stage3DProxy = stage3DProxy;
+		}
+
+		public function get sourceRect() : Rectangle
+		{
+			return _sourceRect;
+		}
+
+		public function set sourceRect(value : Rectangle) : void
+		{
+			_sourceRect = value;
+			_vertexBufferInvalid = true;
 		}
 
 		public function get stage3DProxy() : Stage3DProxy
@@ -94,6 +109,15 @@ package away3d.core.render
 
 			if (!_vertexBuffer) initBuffers(context);
 
+			if (_vertexBufferInvalid) {
+				_vertexBuffer.uploadFromVector(Vector.<Number>([	-1, -1, _sourceRect.x, _sourceRect.y + _sourceRect.height,
+					1, -1, _sourceRect.x + _sourceRect.width, _sourceRect.y + _sourceRect.height,
+					1,  1, _sourceRect.x + _sourceRect.width, _sourceRect.y,
+					-1,  1, _sourceRect.x, _sourceRect.y
+				]), 0, 4);
+				_vertexBufferInvalid = false;
+			}
+
 			context.setProgram(_program3d);
 			context.setTextureAt(0, _texture.getTextureForStage3D(_stage3DProxy));
 			context.setVertexBufferAt(0, _vertexBuffer, 0, Context3DVertexBufferFormat.FLOAT_2);
@@ -114,11 +138,7 @@ package away3d.core.render
 								new Away3dAGALMiniAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, getFragmentCode())
 			);
 
-			_vertexBuffer.uploadFromVector(Vector.<Number>([	-1, -1, 0, 1,
-																1, -1, 1, 1,
-																1,  1, 1, 0,
-																-1,  1, 0, 0
-															]), 0, 4);
+			_vertexBufferInvalid = true;
 		}
 
 		public function get texture() : Texture2DBase
