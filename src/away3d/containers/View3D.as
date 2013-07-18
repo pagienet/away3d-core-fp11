@@ -682,7 +682,7 @@
 			if (_depthPrepass)
 				renderDepthPrepass(_entityCollector);
 
-			_renderer.clearOnRender = !_depthPrepass;
+			_renderer.clearOnRender = !_depthPrepass || !target;
 
 			if (_filter3DRenderer && _stage3DProxy._context3D) {
 				_renderer.render(_entityCollector, _filter3DRenderer.getMainInputTexture(_stage3DProxy), _rttBufferManager.renderToTextureRect);
@@ -690,7 +690,7 @@
 			} else {
 				_renderer.shareContext = _shareContext;
 				if (_shareContext) {
-					_renderer.render(_entityCollector, null, _scissorRect);
+					_renderer.render(_entityCollector, target, _scissorRect);
 				} else {
 					_renderer.render(_entityCollector);
 				}
