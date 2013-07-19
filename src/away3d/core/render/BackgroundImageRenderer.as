@@ -24,7 +24,7 @@ package away3d.core.render
 		private var _vertexBuffer : VertexBuffer3D;
 		private var _stage3DProxy : Stage3DProxy;
 		private var _context : Context3D;
-		private var _sourceRect : Rectangle;
+		private var _sourceRect : Rectangle = new Rectangle(0, 0, 1, 1);
 		private var _vertexBufferInvalid : Boolean;
 
 		public function BackgroundImageRenderer(stage3DProxy : Stage3DProxy)
@@ -39,7 +39,7 @@ package away3d.core.render
 
 		public function set sourceRect(value : Rectangle) : void
 		{
-			_sourceRect = value;
+			_sourceRect = value || new Rectangle(0, 0, 1, 1);
 			_vertexBufferInvalid = true;
 		}
 
