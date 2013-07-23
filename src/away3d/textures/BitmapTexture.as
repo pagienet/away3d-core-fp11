@@ -14,7 +14,7 @@
 		private static var _mipMaps : Array = [];
 		private static var _mipMapUses : Array = [];
 
-		private var _bitmapData : BitmapData;
+		protected var _bitmapData : BitmapData;
 		private var _mipMapHolder : BitmapData;
 		private var _generateMipmaps: Boolean;
 
