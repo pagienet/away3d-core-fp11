@@ -49,7 +49,7 @@
 		override protected function uploadContent(texture : TextureBase) : void
 		{
 			if (_generateMipmaps) MipmapGenerator.generateMipMaps(_bitmapData, texture, _mipMapHolder, true);
-			else Texture(texture).uploadFromBitmapData (_bitmapData, 0);
+			else Texture(texture).uploadFromBitmapData(_bitmapData, 0);
 		}
 
 		private function getMipMapHolder() : void
