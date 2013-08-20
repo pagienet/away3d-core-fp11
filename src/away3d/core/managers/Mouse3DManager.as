@@ -104,11 +104,13 @@ package away3d.core.managers {
 				var view:View3D;
 				for (var v:int = _viewCount-1; v>=0; v--) {
 					view = _view3DLookup[v];
-					if (_collidingViewObjects[v] && (view.layeredView || _collidingViewObjects[v].rayEntryDistance < distance)) {
-						distance = _collidingViewObjects[v].rayEntryDistance;
-						_collidingObject = _collidingViewObjects[v];
-						if (view.layeredView)
-							break;
+					if( v < _collidingViewObjects.length ) {
+						if( _collidingViewObjects[v] && (view.layeredView || _collidingViewObjects[v].rayEntryDistance < distance) ) {
+							distance = _collidingViewObjects[v].rayEntryDistance;
+							_collidingObject = _collidingViewObjects[v];
+							if( view.layeredView )
+								break;
+						}
 					}
 				}
 			}
