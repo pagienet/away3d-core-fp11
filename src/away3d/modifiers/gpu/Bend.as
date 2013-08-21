@@ -22,10 +22,10 @@ package away3d.modifiers.gpu
 		private var _offset:Number;
 		private var _width:Number;
 		private var _origin:Number;
-		
+
 		private var _bendConstants:Vector.<Number>;
 		private var _bendConstants2:Vector.<Number>;
-
+ 
 		public function Bend(objectWidth:Number, force:Number = 1, origin:Number = 0.5, offset:Number = 0){
 
 			_width = objectWidth;
@@ -48,9 +48,9 @@ package away3d.modifiers.gpu
 
 		override public function getAGALVertexCode(pass:MaterialPassBase, sourceRegisters:Vector.<String>, targetRegisters:Vector.<String>, profile:String):String
 		{
+			var vt0:String =  targetRegisters[0];
 
-			var idRegister:uint =  uint(targetRegisters[0].substring(2, targetRegisters[0].length) );
-			var vt0:String =  "vt"+idRegister;
+			var idRegister:uint =  uint(targetRegisters.length);
 
 			idRegister++;
 			var vt1:String = "vt"+idRegister;
@@ -60,14 +60,27 @@ package away3d.modifiers.gpu
 
 			idRegister++;
 			var vt3:String = "vt"+idRegister;
-		 
-			var agalCode:String =	"mov "+targetRegisters[0]+", "+sourceRegisters[0]+ " \n" + //mov vt0, va0 
 
-			/*		uvs for fragment shader*/
-					"mov v0, va1 \n" +
+			var len:uint = sourceRegisters.length;
 
-			/*			x = _originalVertices[i];
-						y = _originalVertices[i+1];  //vt0 */
+			var usesMoreRegisters:Boolean = Boolean(len > 1);
+
+	  		var agalCode:String = "";
+	  		
+	  			agalCode += "mov " + targetRegisters[0] + ", " + sourceRegisters[0] + "\n";
+	  			agalCode += "mov v0, va1 \n";
+
+	  		if( usesMoreRegisters ){
+	  			agalCode += "mov v1, va2 \n";
+	  		}
+			
+
+			/*		uvs for fragment shader*/  //
+			agalCode +=	
+
+
+			/*			x = _originalVertices[i];*/
+			/*			y = _originalVertices[i+1]; */ //vt0
 
 			/*			p = x - _origin;*/
 					"sub "+vt1+".x, "+vt0+".x, vc4.w \n"+
@@ -97,10 +110,9 @@ package away3d.modifiers.gpu
 					"mul "+vt3+".x, "+vt3+".x, vc4.x \n"+
 			/*			x -= ow;*/
 					"sub "+vt3+".x, "+vt3+".x, "+vt2+".w \n"+
-
  				 
-			/*		//sge t a b - If a is greater or equal to b put 1 in t, otherwise put 0 in t.
-			 		var sge:Number = (x>_origin)? 1 : 0;*/
+			/*			//sge t a b - If a is greater or equal to b put 1 in t, otherwise put 0 in t.
+			 			var sge:Number = (x>_origin)? 1 : 0;*/
 			 		"sge "+vt3+".z, "+vt3+".x, vc4.w \n"+
 			 
  			/*			x -= _originalVertices[i];*/
@@ -140,6 +152,7 @@ package away3d.modifiers.gpu
 			_bendConstants2[2] = _origin/_width;
 			_bendConstants2[3] = 0;
 		}
+  
 		 
 		public function set force(value:Number):void
 		{
