@@ -25,7 +25,7 @@ package away3d.modifiers.gpu
 
 		private var _bendConstants:Vector.<Number>;
 		private var _bendConstants2:Vector.<Number>;
- 
+
 		public function Bend(objectWidth:Number, force:Number = 1, origin:Number = 0.5, offset:Number = 0){
 
 			_width = objectWidth;
@@ -46,74 +46,70 @@ package away3d.modifiers.gpu
 			stage3DProxy._context3D.setProgramConstantsFromVector(Context3DProgramType.VERTEX, vertexConstantOffset+4, _bendConstants2);
 		}
 
+		override public function getAGALUVCode(pass:MaterialPassBase, UVSource:String, UVTarget:String):String
+		{
+			return "mov " + UVTarget + "," + UVSource + "\n";
+		}
+
 		override public function getAGALVertexCode(pass:MaterialPassBase, sourceRegisters:Vector.<String>, targetRegisters:Vector.<String>, profile:String):String
 		{
+		
 			var vt0:String =  targetRegisters[0];
-
 			var idRegister:uint =  uint(targetRegisters.length);
 
-			idRegister++;
-			var vt1:String = "vt"+idRegister;
+			var vt1:String = findTempReg(targetRegisters);
+			var vt2:String = findTempReg(targetRegisters, vt1);
+			var vt3:String = findTempReg(targetRegisters, vt2);
 
-			idRegister++;
-			var vt2:String = "vt"+idRegister;
-
-			idRegister++;
-			var vt3:String = "vt"+idRegister;
-
-			var len:uint = sourceRegisters.length;
-
-			var usesMoreRegisters:Boolean = Boolean(len > 1);
+			var vc4:String = "vc" + pass.numUsedVertexConstants;
+			var vc8:String = "vc" + (pass.numUsedVertexConstants+4);
 
 	  		var agalCode:String = "";
-	  		
 	  			agalCode += "mov " + targetRegisters[0] + ", " + sourceRegisters[0] + "\n";
 	  			agalCode += "mov v0, va1 \n";
 
-	  		if( usesMoreRegisters ){
-	  			agalCode += "mov v1, va2 \n";
+	  		if( sourceRegisters.length > 1 ){
+	  			agalCode += "mov v2, va2 \n";
+	  			agalCode += "mov vt2, va1 \n";
+	  			agalCode += "mov vt1, va3 \n";
 	  		}
-			
 
-			/*		uvs for fragment shader*/  //
-			agalCode +=	
-
-
-			/*			x = _originalVertices[i];*/
-			/*			y = _originalVertices[i+1]; */ //vt0
+			agalCode +=
+			/*			x = _originalVertices[i];y = _originalVertices[i+1]; the buffer va0*/ 
 
 			/*			p = x - _origin;*/
-					"sub "+vt1+".x, "+vt0+".x, vc4.w \n"+
+					"sub "+vt1+".x, "+vt0+".x, "+vc4+".w \n"+
 			/*			p /= _width;*/
-					"div "+vt1+".x, "+vt1+".x, vc4.x \n"+
+					"div "+vt1+".x, "+vt1+".x, "+vc4+".x \n"+
 			/*			fa = bendAngle * p;*/
-					"mul "+vt2+".x, "+vt1+".x, vc4.z \n"+
+					"mul "+vt2+".x, "+vt1+".x, "+vc4+".z \n"+
 			/*			fa += HALF_PI;*/
-					"add "+vt2+".x, "+vt2+".x, vc8.x \n"+
+					"add "+vt2+".x, "+vt2+".x, "+vc8+".x \n"+
 			/*			rad = radius + y;*/
-					"add "+vt2+".y, "+vt0+".y, vc4.y \n"+
+					"add "+vt2+".y, "+vt0+".y, "+vc4+".y \n"+
 			/*			pt = Math.sin(fa);*/
 					"sin "+vt2+".z, "+vt2+".x \n"+
 			/*			pt *= rad;*/
 					"mul "+vt2+".z, "+vt2+".z, "+vt2+".y \n"+
 			/*			y = pt - radius;*/
-					"sub "+vt3+".y, "+vt2+".z, vc4.y \n"+
+					"sub "+vt3+".y, "+vt2+".z, "+vc4+".y \n"+
 			/*			ow = Math.cos(fa);*/
 					"cos "+vt2+".w, "+vt2+".x \n"+
 			/*			ow *= rad;*/
 					"mul "+vt2+".w, "+vt2+".w, "+vt2+".y \n"+
 
 			/*			x = _origin/_width;*/
-					"mov "+vt3+".x, vc8.z \n"+
+					"mov "+vt3+".x, "+vc8+".z \n"+
 
 			/*			x *= _width;*/
-					"mul "+vt3+".x, "+vt3+".x, vc4.x \n"+
+					"mul "+vt3+".x, "+vt3+".x, "+vc4+".x \n"+
 			/*			x -= ow;*/
 					"sub "+vt3+".x, "+vt3+".x, "+vt2+".w \n"+
- 				 
+
+					 
 			/*			//sge t a b - If a is greater or equal to b put 1 in t, otherwise put 0 in t.
 			 			var sge:Number = (x>_origin)? 1 : 0;*/
-			 		"sge "+vt3+".z, "+vt3+".x, vc4.w \n"+
+			 		"sge "+vt3+".z, "+vt3+".x, "+vc4+".w \n"+
 			 
  			/*			x -= _originalVertices[i];*/
  					"sub "+vt3+".x, "+vt3+".x, "+vt0+".x \n"+
@@ -128,11 +124,10 @@ package away3d.modifiers.gpu
 					"mul "+vt0+".y, "+vt3+".y, "+vt3+".z \n"+
 
 			/*			vertices[i+1] += _originalVertices[i+1];*/
-					"add "+vt0+".y, "+vt0+".y, "+sourceRegisters[0]+".y \n"+
+					"add "+vt0+".y, "+vt0+".y, "+sourceRegisters[0]+".y \n";
  
 			//m44 op, vt0, vc0  define by api in materialPassBase in updateProgram method  
 
-			 "";
 			return agalCode;
 		}
   
@@ -188,6 +183,11 @@ package away3d.modifiers.gpu
 				_origin = value;
 				updateConstants();
 			}
+		}
+
+		public function clear():void
+		{
+			_bendConstants = _bendConstants2 = null;
 		}
  
 	}
