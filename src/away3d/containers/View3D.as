@@ -682,7 +682,7 @@
 
 			// update picking
 		
-			_mouse3DManager.updateCollider(this);
+			//_mouse3DManager.updateCollider(this);
 			//_touch3DManager.updateCollider();
 		
 			if (_requireDepthRender)
@@ -712,7 +712,7 @@
 
 				// fire collected mouse events
 
-				_mouse3DManager.fireMouseEvents();
+				//_mouse3DManager.fireMouseEvents();
 //				_touch3DManager.fireTouchEvents();
 			}
 
