@@ -18,7 +18,7 @@ package away3d.modifiers.gpu
 	the vertex x values in object space must be positive.*/
 	 
 	public class PageBender extends ModifierBase
-	{	
+	{
 		private const DEGREES_TO_RADIANS:Number = Math.PI / 180;
 		private const FACTOR_FORCE:int = 60;
 
@@ -26,6 +26,7 @@ package away3d.modifiers.gpu
 		private var _foldRotation:Number;
 		private var _width:Number;
 		private var _origin:Number;
+		private var _dirty:Boolean;
 
 		private var  _axisLocation:Vector3D;
 		private var  _segStart:Vector3D;
@@ -68,6 +69,7 @@ package away3d.modifiers.gpu
 
 		override public function updateRenderState(stage3DProxy:Stage3DProxy, subMesh:SubMesh, vertexConstantOffset:int, vertexStreamOffset:int, camera:Camera3D):void
 		{
+			if(_dirty) updateConstants();
 
 			var vcOffset:uint = vertexConstantOffset;
 			//vc0
@@ -502,6 +504,8 @@ package away3d.modifiers.gpu
 			_vc32[1] = (b*u) + (a*v);
 			_vc32[2] = bw;
 			_vc32[3] = 0;
+
+			_dirty = false;
 		}
   
 		 
@@ -510,7 +514,7 @@ package away3d.modifiers.gpu
 			value *= FACTOR_FORCE;
 			if(_force != value) {
 				_force = value; 
-				updateConstants();
+				_dirty = true;
 			}
 		}		
 		public function get force():Number
@@ -526,7 +530,7 @@ package away3d.modifiers.gpu
 		{
 			if(_foldRotation != value) {
 				_foldRotation = value;
-				updateConstants();
+				_dirty = true;
 			}
 		}
 
@@ -540,7 +544,7 @@ package away3d.modifiers.gpu
 				_origin = value;
 				if(_origin<1) _origin = 1;
 
-				updateConstants();
+				_dirty = true;
 			}
 		}
 
