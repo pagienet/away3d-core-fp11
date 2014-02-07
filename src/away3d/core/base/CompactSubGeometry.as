@@ -1,12 +1,13 @@
 package away3d.core.base
 {
-	import away3d.arcane;
-	import away3d.core.managers.Stage3DProxy;
-
 	import flash.display3D.Context3D;
 	import flash.display3D.Context3DVertexBufferFormat;
 	import flash.display3D.VertexBuffer3D;
+	import flash.geom.Matrix;
 	import flash.geom.Matrix3D;
+	
+	import away3d.arcane;
+	import away3d.core.managers.Stage3DProxy;
 
 	use namespace arcane;
 
@@ -241,6 +242,12 @@ package away3d.core.base
 		override public function scaleUV(scaleU : Number = 1, scaleV : Number = 1) : void
 		{
 			super.scaleUV(scaleU, scaleV);
+			invalidateBuffers(_vertexDataInvalid);
+		}
+		
+		override public function transformUV( matrix:Matrix ) : void
+		{
+			super.transformUV(matrix);
 			invalidateBuffers(_vertexDataInvalid);
 		}
 

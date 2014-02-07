@@ -1,15 +1,17 @@
 package away3d.core.base
 {
+	import flash.display3D.Context3D;
+	import flash.display3D.IndexBuffer3D;
+	import flash.display3D.VertexBuffer3D;
+	import flash.geom.Matrix;
+	import flash.geom.Matrix3D;
+	import flash.geom.Point;
+	import flash.geom.Vector3D;
+	
 	import away3d.arcane;
 	import away3d.core.base.ISubGeometry;
 	import away3d.core.managers.Stage3DProxy;
 	import away3d.errors.AbstractMethodError;
-
-	import flash.display3D.Context3D;
-	import flash.display3D.IndexBuffer3D;
-	import flash.display3D.VertexBuffer3D;
-	import flash.geom.Matrix3D;
-	import flash.geom.Vector3D;
 
 	use namespace  arcane;
 
@@ -603,6 +605,23 @@ package away3d.core.base
 			_scaleV = scaleV;
 		}
 
+		public function transformUV( matrix:Matrix ):void
+		{
+			var offset : int = UVOffset;
+			var stride : int = UVStride;
+			var uvs : Vector.<Number> = UVData;
+			var len : int = uvs.length;
+			var tmp:Point = new Point();
+			
+			for (var i : uint = offset; i < len; i += stride) {
+				tmp.x = uvs[i];
+				tmp.y = uvs[i+1];
+				tmp = matrix.transformPoint(tmp);
+				uvs[i]   = tmp.x;
+				uvs[i+1] = tmp.y;
+			}
+		}
+		
 		/**
 		 * Scales the geometry.
 		 * @param scale The amount by which to scale.

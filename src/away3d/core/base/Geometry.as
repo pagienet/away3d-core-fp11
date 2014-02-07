@@ -1,12 +1,13 @@
 package away3d.core.base
 {
+	import flash.geom.Matrix;
+	import flash.geom.Matrix3D;
+	
 	import away3d.arcane;
 	import away3d.events.GeometryEvent;
 	import away3d.library.assets.AssetType;
 	import away3d.library.assets.IAsset;
 	import away3d.library.assets.NamedAssetBase;
-	
-	import flash.geom.Matrix3D;
 
 	use namespace arcane;
 	
@@ -133,6 +134,17 @@ package away3d.core.base
 			var numSubGeoms : uint = _subGeometries.length;
 			for (var i : uint = 0; i < numSubGeoms; ++i)
 				_subGeometries[i].scaleUV(scaleU, scaleV);
+		}
+		
+		/**
+		 * Transform the uv coordinates through a transformation matrix
+		 * @param matrix A transformation Matrix;
+		  */
+		public function transformUV( matrix:Matrix ) : void
+		{
+			var numSubGeoms : uint = _subGeometries.length;
+			for (var i : uint = 0; i < numSubGeoms; ++i)
+				_subGeometries[i].transformUV(matrix);
 		}
 
 		/**

@@ -1,9 +1,10 @@
 package away3d.core.base
 {
-	import away3d.core.managers.Stage3DProxy;
-
 	import flash.display3D.IndexBuffer3D;
+	import flash.geom.Matrix;
 	import flash.geom.Matrix3D;
+	
+	import away3d.core.managers.Stage3DProxy;
 
 	public interface ISubGeometry
 	{
@@ -147,6 +148,7 @@ package away3d.core.base
 		function get scaleU():Number;
 		function get scaleV():Number;
 		function scaleUV(scaleU : Number = 1, scaleV : Number = 1):void;
+		function transformUV(matrix:Matrix):void;
 
 		function get parentGeometry() : Geometry;
 		function set parentGeometry(value : Geometry) : void;
