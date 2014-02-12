@@ -148,7 +148,7 @@ package away3d.core.base
 		function get scaleU():Number;
 		function get scaleV():Number;
 		function scaleUV(scaleU : Number = 1, scaleV : Number = 1):void;
-		function transformUV(matrix:Matrix):void;
+		function transformUV(matrix:Matrix ):void;
 
 		function get parentGeometry() : Geometry;
 		function set parentGeometry(value : Geometry) : void;

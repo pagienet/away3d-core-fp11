@@ -247,7 +247,7 @@ package away3d.core.base
 		
 		override public function transformUV( matrix:Matrix ) : void
 		{
-			super.transformUV(matrix);
+			if ( matrix ) super.transformUV(matrix);
 			invalidateBuffers(_vertexDataInvalid);
 		}
 
