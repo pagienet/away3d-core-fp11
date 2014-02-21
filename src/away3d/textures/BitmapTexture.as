@@ -48,8 +48,14 @@
 
 		override protected function uploadContent(texture : TextureBase) : void
 		{
-			if (_generateMipmaps) MipmapGenerator.generateMipMaps(_bitmapData, texture, _mipMapHolder, true);
-			else Texture(texture).uploadFromBitmapData(_bitmapData, 0);
+			try
+			{
+				if (_generateMipmaps) MipmapGenerator.generateMipMaps(_bitmapData, texture, _mipMapHolder, true);
+				else Texture(texture).uploadFromBitmapData(_bitmapData, 0);
+			} catch ( error:Error )
+			{
+				trace("ERROR in BitmapTexture.uploadContent: trying to upload disposewd bitmapdata");
+			}
 		}
 
 		private function getMipMapHolder() : void
