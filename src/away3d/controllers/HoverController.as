@@ -4,15 +4,15 @@ package away3d.controllers
 	import away3d.containers.*;
 	import away3d.entities.*;
 	import away3d.core.math.*;
-
+	
 	import flash.geom.Vector3D;
 	
 	use namespace arcane;
 	
 	/**
 	 * Extended camera used to hover round a specified target object.
-	 * 
-	 * @see	away3d.containers.View3D
+	 *
+	 * @see    away3d.containers.View3D
 	 */
 	public class HoverController extends LookAtController
 	{
@@ -29,14 +29,15 @@ package away3d.controllers
 		private var _steps:uint = 8;
 		private var _yFactor:Number = 2;
 		private var _wrapPanAngle:Boolean = false;
+		private var _pos:Vector3D = new Vector3D();
 		
 		/**
 		 * Fractional step taken each time the <code>hover()</code> method is called. Defaults to 8.
-		 * 
+		 *
 		 * Affects the speed at which the <code>tiltAngle</code> and <code>panAngle</code> resolve to their targets.
-		 * 
-		 * @see	#tiltAngle
-		 * @see	#panAngle
+		 *
+		 * @see    #tiltAngle
+		 * @see    #panAngle
 		 */
 		public function get steps():uint
 		{
@@ -45,7 +46,7 @@ package away3d.controllers
 		
 		public function set steps(val:uint):void
 		{
-			val = (val<1)? 1 : val;
+			val = (val < 1)? 1 : val;
 			
 			if (_steps == val)
 				return;
@@ -115,8 +116,8 @@ package away3d.controllers
 		
 		/**
 		 * Minimum bounds for the <code>panAngle</code>. Defaults to -Infinity.
-		 * 
-		 * @see	#panAngle
+		 *
+		 * @see    #panAngle
 		 */
 		public function get minPanAngle():Number
 		{
@@ -135,8 +136,8 @@ package away3d.controllers
 		
 		/**
 		 * Maximum bounds for the <code>panAngle</code>. Defaults to Infinity.
-		 * 
-		 * @see	#panAngle
+		 *
+		 * @see    #panAngle
 		 */
 		public function get maxPanAngle():Number
 		{
@@ -155,8 +156,8 @@ package away3d.controllers
 		
 		/**
 		 * Minimum bounds for the <code>tiltAngle</code>. Defaults to -90.
-		 * 
-		 * @see	#tiltAngle
+		 *
+		 * @see    #tiltAngle
 		 */
 		public function get minTiltAngle():Number
 		{
@@ -175,8 +176,8 @@ package away3d.controllers
 		
 		/**
 		 * Maximum bounds for the <code>tiltAngle</code>. Defaults to 90.
-		 * 
-		 * @see	#tiltAngle
+		 *
+		 * @see    #tiltAngle
 		 */
 		public function get maxTiltAngle():Number
 		{
@@ -195,8 +196,8 @@ package away3d.controllers
 		
 		/**
 		 * Fractional difference in distance between the horizontal camera orientation and vertical camera orientation. Defaults to 2.
-		 * 
-		 * @see	#distance
+		 *
+		 * @see    #distance
 		 */
 		public function get yFactor():Number
 		{
@@ -256,14 +257,14 @@ package away3d.controllers
 		
 		/**
 		 * Updates the current tilt angle and pan angle values.
-		 * 
+		 *
 		 * Values are calculated using the defined <code>tiltAngle</code>, <code>panAngle</code> and <code>steps</code> variables.
-		 * 
+		 *
 		 * @param interpolate   If the update to a target pan- or tiltAngle is interpolated. Default is true.
 		 *
-		 * @see	#tiltAngle
-		 * @see	#panAngle
-		 * @see	#steps
+		 * @see    #tiltAngle
+		 * @see    #panAngle
+		 * @see    #steps
 		 */
 		public override function update(interpolate:Boolean = true):void
 		{
@@ -272,20 +273,24 @@ package away3d.controllers
 				notifyUpdate();
 				
 				if (_wrapPanAngle) {
-					if (_panAngle < 0)
-						_panAngle = (_panAngle % 360) + 360;
-					else
-						_panAngle = _panAngle % 360;
+					if (_panAngle < 0) {
+						_currentPanAngle += _panAngle%360 + 360 - _panAngle;
+						_panAngle = _panAngle%360 + 360;
+					} else {
+						_currentPanAngle += _panAngle%360 - _panAngle;
+						_panAngle = _panAngle%360;
+					}
 					
-					if (_panAngle - _currentPanAngle < -180)
+					while (_panAngle - _currentPanAngle < -180)
 						_currentPanAngle -= 360;
-					else if (_panAngle - _currentPanAngle > 180)
+					
+					while (_panAngle - _currentPanAngle > 180)
 						_currentPanAngle += 360;
 				}
-
-				if(interpolate){
+				
+				if (interpolate) {
 					_currentTiltAngle += (_tiltAngle - _currentTiltAngle)/(steps + 1);
-					_currentPanAngle += (_panAngle - _currentPanAngle)/(steps + 1);	
+					_currentPanAngle += (_panAngle - _currentPanAngle)/(steps + 1);
 				} else {
 					_currentPanAngle = _panAngle;
 					_currentTiltAngle = _tiltAngle;
@@ -297,12 +302,39 @@ package away3d.controllers
 					_currentPanAngle = _panAngle;
 				}
 			}
-			
-			var pos:Vector3D = (lookAtObject)? lookAtObject.position : (lookAtPosition)? lookAtPosition: _origin;
-			targetObject.x = pos.x + distance*Math.sin(_currentPanAngle*MathConsts.DEGREES_TO_RADIANS)*Math.cos(_currentTiltAngle*MathConsts.DEGREES_TO_RADIANS);
-			targetObject.z = pos.z + distance*Math.cos(_currentPanAngle*MathConsts.DEGREES_TO_RADIANS)*Math.cos(_currentTiltAngle*MathConsts.DEGREES_TO_RADIANS);
-			targetObject.y = pos.y + distance*Math.sin(_currentTiltAngle*MathConsts.DEGREES_TO_RADIANS)*yFactor;
-			
+
+			if(!_targetObject) return;
+
+			if (_lookAtPosition) {
+				_pos.x = _lookAtPosition.x;
+				_pos.y = _lookAtPosition.y;
+				_pos.z = _lookAtPosition.z;
+			} else if (_lookAtObject) {
+				if(_targetObject.parent && _lookAtObject.parent) {
+					if(_targetObject.parent != _lookAtObject.parent) {// different spaces
+						_pos.x = _lookAtObject.scenePosition.x;
+						_pos.y = _lookAtObject.scenePosition.y;
+						_pos.z = _lookAtObject.scenePosition.z;
+						Matrix3DUtils.transformVector(_targetObject.parent.inverseSceneTransform, _pos, _pos);
+					}else{//one parent
+						Matrix3DUtils.getTranslation(_lookAtObject.transform, _pos);
+					}
+				}else if(_lookAtObject.scene){
+					_pos.x = _lookAtObject.scenePosition.x;
+					_pos.y = _lookAtObject.scenePosition.y;
+					_pos.z = _lookAtObject.scenePosition.z;
+				}else{
+					Matrix3DUtils.getTranslation(_lookAtObject.transform, _pos);
+				}
+			}else{
+				_pos.x = _origin.x;
+				_pos.y = _origin.y;
+				_pos.z = _origin.z;
+			}
+
+			_targetObject.x = _pos.x + _distance*Math.sin(_currentPanAngle*MathConsts.DEGREES_TO_RADIANS)*Math.cos(_currentTiltAngle*MathConsts.DEGREES_TO_RADIANS);
+			_targetObject.z = _pos.z + _distance*Math.cos(_currentPanAngle*MathConsts.DEGREES_TO_RADIANS)*Math.cos(_currentTiltAngle*MathConsts.DEGREES_TO_RADIANS);
+			_targetObject.y = _pos.y + _distance*Math.sin(_currentTiltAngle*MathConsts.DEGREES_TO_RADIANS)*_yFactor;
 			super.update();
 		}
 	}

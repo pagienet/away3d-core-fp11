@@ -7,6 +7,7 @@ package away3d.core.render
 	import com.adobe.utils.Away3dAGALMiniAssembler;
 
 	import flash.display3D.Context3D;
+	import flash.display3D.Context3DBlendFactor;
 	import flash.display3D.Context3DProgramType;
 	import flash.display3D.Context3DTextureFormat;
 	import flash.display3D.Context3DVertexBufferFormat;
@@ -18,20 +19,20 @@ package away3d.core.render
 
 	public class BackgroundImageRenderer
 	{
-		private var _program3d : Program3D;
-		private var _texture : Texture2DBase;
-		private var _indexBuffer : IndexBuffer3D;
-		private var _vertexBuffer : VertexBuffer3D;
-		private var _stage3DProxy : Stage3DProxy;
-		private var _context : Context3D;
+		private var _program3d:Program3D;
+		private var _texture:Texture2DBase;
+		private var _indexBuffer:IndexBuffer3D;
+		private var _vertexBuffer:VertexBuffer3D;
+		private var _stage3DProxy:Stage3DProxy;
+		private var _context:Context3D;
 		private var _sourceRect : Rectangle = new Rectangle(0, 0, 1, 1);
 		private var _vertexBufferInvalid : Boolean;
-
-		public function BackgroundImageRenderer(stage3DProxy : Stage3DProxy)
+		
+		public function BackgroundImageRenderer(stage3DProxy:Stage3DProxy)
 		{
 			this.stage3DProxy = stage3DProxy;
 		}
-
+		
 		public function get sourceRect() : Rectangle
 		{
 			return _sourceRect;
@@ -42,21 +43,22 @@ package away3d.core.render
 			_sourceRect = value || new Rectangle(0, 0, 1, 1);
 			_vertexBufferInvalid = true;
 		}
-
-		public function get stage3DProxy() : Stage3DProxy
+		
+		public function get stage3DProxy():Stage3DProxy
 		{
 			return _stage3DProxy;
 		}
-
-		public function set stage3DProxy(value : Stage3DProxy) : void
+		
+		public function set stage3DProxy(value:Stage3DProxy):void
 		{
-			if (value == _stage3DProxy) return;
+			if (value == _stage3DProxy)
+				return;
 			_stage3DProxy = value;
-
+			
 			removeBuffers();
 		}
-
-		private function removeBuffers() : void
+		
+		private function removeBuffers():void
 		{
 			if (_vertexBuffer) {
 				_vertexBuffer.dispose();
@@ -67,16 +69,16 @@ package away3d.core.render
 				_indexBuffer = null;
 			}
 		}
-
-		private function getVertexCode() : String
+		
+		private function getVertexCode():String
 		{
-			return	 "mov op, va0\n" +
-					"mov v0, va1";
+			return "mov op, va0\n" +
+				"mov v0, va1";
 		}
-
-		private function getFragmentCode() : String
+		
+		private function getFragmentCode():String
 		{
-			var format : String;
+			var format:String;
 			switch (_texture.format) {
 				case Context3DTextureFormat.COMPRESSED:
 					format = "dxt1,";
@@ -87,28 +89,30 @@ package away3d.core.render
 				default:
 					format = "";
 			}
-			return	"tex ft0, v0, fs0 <2d, " + format + "linear>	\n" +
-					"mov oc, ft0";
+			return "tex ft0, v0, fs0 <2d, " + format + "linear>	\n" +
+				"mov oc, ft0";
 		}
-
-		public function dispose() : void
+		
+		public function dispose():void
 		{
 			removeBuffers();
 		}
-
-		public function render() : void
+		
+		public function render():void
 		{
-			var context : Context3D = _stage3DProxy.context3D;
-
+			var context:Context3D = _stage3DProxy.context3D;
+			
 			if (context != _context) {
 				removeBuffers();
 				_context = context;
 			}
-
-			if (!context) return;
-
-			if (!_vertexBuffer) initBuffers(context);
-
+			
+			if (!context)
+				return;
+			
+			if (!_vertexBuffer)
+				initBuffers(context);
+			
 			if (_vertexBufferInvalid) {
 				_vertexBuffer.uploadFromVector(Vector.<Number>([	-1, -1, _sourceRect.x, _sourceRect.y + _sourceRect.height,
 					1, -1, _sourceRect.x + _sourceRect.width, _sourceRect.y + _sourceRect.height,
@@ -117,6 +121,8 @@ package away3d.core.render
 				]), 0, 4);
 				_vertexBufferInvalid = false;
 			}
+			
+			context.setBlendFactors(Context3DBlendFactor.ONE, Context3DBlendFactor.ZERO);
 
 			context.setProgram(_program3d);
 			context.setTextureAt(0, _texture.getTextureForStage3D(_stage3DProxy));
@@ -127,26 +133,46 @@ package away3d.core.render
 			context.setVertexBufferAt(1, null);
 			context.setTextureAt(0, null);
 		}
-
-		private function initBuffers(context : Context3D) : void
+		
+		private function initBuffers(context:Context3D):void
 		{
 			_vertexBuffer = context.createVertexBuffer(4, 4);
 			_program3d = context.createProgram();
 			_indexBuffer = context.createIndexBuffer(6);
 			_indexBuffer.uploadFromVector(Vector.<uint>([2, 1, 0, 3, 2, 0]), 0, 6);
+			
 			_program3d.upload(	new Away3dAGALMiniAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, getVertexCode()),
 								new Away3dAGALMiniAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, getFragmentCode())
 			);
-
+			
 			_vertexBufferInvalid = true;
-		}
+			
+			var w:Number = 2;
+			var h:Number = 2;
+			var x:Number = -1;
+			var y:Number = 1;
+			
+			if (_stage3DProxy.scissorRect) {
+				x = (_stage3DProxy.scissorRect.x * 2 - _stage3DProxy.viewPort.width) / _stage3DProxy.viewPort.width;
+				y = (_stage3DProxy.scissorRect.y * 2 - _stage3DProxy.viewPort.height) / _stage3DProxy.viewPort.height * -1;
+				w = 2 / (_stage3DProxy.viewPort.width / _stage3DProxy.scissorRect.width);
+				h = 2 / (_stage3DProxy.viewPort.height / _stage3DProxy.scissorRect.height);
+			}
+			
+			_vertexBuffer.uploadFromVector(Vector.<Number>([x, y-h, 0, 1,
+			x+w, y-h, 1, 1,
+			x+w, y, 1, 0,
+			x, y, 0, 0
+			]), 0, 4);
 
-		public function get texture() : Texture2DBase
+		}
+		
+		public function get texture():Texture2DBase
 		{
 			return _texture;
 		}
-
-		public function set texture(value : Texture2DBase) : void
+		
+		public function set texture(value:Texture2DBase):void
 		{
 			_texture = value;
 		}

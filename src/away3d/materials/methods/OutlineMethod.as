@@ -6,13 +6,16 @@ package away3d.materials.methods
 	import away3d.materials.passes.OutlinePass;
 	import away3d.materials.compilation.ShaderRegisterCache;
 	import away3d.materials.compilation.ShaderRegisterElement;
-
+	
 	use namespace arcane;
 
+	/**
+	 * OutlineMethod provides a shading method to add outlines to an object.
+	 */
 	public class OutlineMethod extends EffectMethodBase
 	{
-		private var _outlinePass : OutlinePass;
-
+		private var _outlinePass:OutlinePass;
+		
 		/**
 		 * Creates a new OutlineMethod object.
 		 * @param outlineColor The colour of the outline stroke
@@ -20,7 +23,7 @@ package away3d.materials.methods
 		 * @param showInnerLines Indicates whether or not strokes should be potentially drawn over the existing model.
 		 * @param dedicatedWaterProofMesh Used to stitch holes appearing due to mismatching normals for overlapping vertices. Warning: this will create a new mesh that is incompatible with animations!
 		 */
-		public function OutlineMethod(outlineColor : uint = 0x000000,  outlineSize : Number = 1, showInnerLines : Boolean = true, dedicatedWaterProofMesh : Boolean = false)
+		public function OutlineMethod(outlineColor:uint = 0x000000, outlineSize:Number = 1, showInnerLines:Boolean = true, dedicatedWaterProofMesh:Boolean = false)
 		{
 			super();
 			_passes = new Vector.<MaterialPassBase>();
@@ -28,62 +31,74 @@ package away3d.materials.methods
 			_passes.push(_outlinePass);
 		}
 
-		override arcane function initVO(vo : MethodVO) : void
+		/**
+		 * @inheritDoc
+		 */
+		override arcane function initVO(vo:MethodVO):void
 		{
 			vo.needsNormals = true;
 		}
-
+		
 		/**
 		 * Indicates whether or not strokes should be potentially drawn over the existing model.
 		 * Set this to true to draw outlines for geometry overlapping in the view, useful to achieve a cel-shaded drawing outline.
 		 * Setting this to false will only cause the outline to appear around the 2D projection of the geometry.
 		 */
-		public function get showInnerLines() : Boolean
+		public function get showInnerLines():Boolean
 		{
 			return _outlinePass.showInnerLines;
 		}
-
-		public function set showInnerLines(value : Boolean) : void
+		
+		public function set showInnerLines(value:Boolean):void
 		{
 			_outlinePass.showInnerLines = value;
 		}
-
+		
 		/**
 		 * The colour of the outline.
 		 */
-		public function get outlineColor() : uint
+		public function get outlineColor():uint
 		{
 			return _outlinePass.outlineColor;
 		}
-
-		public function set outlineColor(value : uint) : void
+		
+		public function set outlineColor(value:uint):void
 		{
 			_outlinePass.outlineColor = value;
 		}
-
+		
 		/**
 		 * The size of the outline.
 		 */
-		public function get outlineSize() : Number
+		public function get outlineSize():Number
 		{
 			return _outlinePass.outlineSize;
 		}
-
-		public function set outlineSize(value : Number) : void
+		
+		public function set outlineSize(value:Number):void
 		{
 			_outlinePass.outlineSize = value;
 		}
 
-		arcane override function reset() : void
+		/**
+		 * @inheritDoc
+		 */
+		arcane override function reset():void
 		{
 			super.reset();
 		}
 
-		arcane override function activate(vo : MethodVO, stage3DProxy : Stage3DProxy) : void
+		/**
+		 * @inheritDoc
+		 */
+		arcane override function activate(vo:MethodVO, stage3DProxy:Stage3DProxy):void
 		{
 		}
 
-		arcane override function getFragmentCode(vo : MethodVO, regCache : ShaderRegisterCache, targetReg : ShaderRegisterElement) : String
+		/**
+		 * @inheritDoc
+		 */
+		arcane override function getFragmentCode(vo:MethodVO, regCache:ShaderRegisterCache, targetReg:ShaderRegisterElement):String
 		{
 			return "";
 		}
