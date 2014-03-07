@@ -686,8 +686,10 @@
 			_scene.traversePartitions(_entityCollector);
 			
 			// update picking
-			_mouse3DManager.updateCollider(this);
-			_touch3DManager.updateCollider();
+			if (mouseEnabled) {
+				_mouse3DManager.updateCollider(this);
+				_touch3DManager.updateCollider();
+			}
 			
 			if (_requireDepthRender)
 				renderSceneDepthToTexture(_entityCollector);
@@ -715,8 +717,8 @@
 				
 				// fire collected mouse events
 
-				//_mouse3DManager.fireMouseEvents();
-//				_touch3DManager.fireTouchEvents();
+				_mouse3DManager.fireMouseEvents();
+				_touch3DManager.fireTouchEvents();
 			}
 			
 			// clean up data for this render
@@ -1020,6 +1022,16 @@
 		
 		override public function set scaleY(value:Number):void
 		{
+		}
+
+		public function get rethrowEvents():Boolean
+		{
+			return _mouse3DManager.rethrowEvents;
+		}
+
+		public function set rethrowEvents(rethrowEvents:Boolean):void
+		{
+			_mouse3DManager.rethrowEvents = rethrowEvents;
 		}
 	}
 }

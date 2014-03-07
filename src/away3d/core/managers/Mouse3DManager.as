@@ -52,6 +52,7 @@ package away3d.core.managers
 		private static var _collidingView:int = -1;
 		private var _collidingDownObject:PickingCollisionVO;
 		private var _collidingUpObject:PickingCollisionVO;
+		private var _rethrowEvents:Boolean;
 		
 		/**
 		 * Creates a new <code>Mouse3DManager</code> object.
@@ -63,8 +64,18 @@ package away3d.core.managers
 				_view3DLookup = new Vector.<View3D>();
 			}
 		}
-		
-		// ---------------------------------------------------------------------
+
+		public function get rethrowEvents():Boolean
+		{
+			return _rethrowEvents;
+		}
+
+		public function set rethrowEvents(value:Boolean):void
+		{
+			_rethrowEvents = value;
+		}
+
+// ---------------------------------------------------------------------
 		// Interface.
 		// ---------------------------------------------------------------------
 		
@@ -241,6 +252,9 @@ package away3d.core.managers
 		
 		private function reThrowEvent(event:MouseEvent):void
 		{
+			if(!_rethrowEvents)
+				return;
+
 			if (!_activeView || (_activeView && !_activeView.shareContext))
 				return;
 			
